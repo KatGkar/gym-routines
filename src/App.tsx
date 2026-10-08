@@ -1,12 +1,17 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import type { ChangeEvent } from 'react';
 import RoutineEditor from './RoutineEditor';
+import { ExercisesProvider, useExercises } from './ExercisesContext';
 import { useRoutines } from './useRoutines';
+import { exportBackup, parseBackup } from './backup';
 import { uid } from './utils';
 import type { Routine } from './types';
 
-export default function App() {
+function AppInner() {
   const [routines, setRoutines] = useRoutines();
+  const { custom, setCustom } = useExercises();
   const [openId, setOpenId] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const open = routines.find((r) => r.id === openId);
 
   const createRoutine = () => {
@@ -36,6 +41,29 @@ export default function App() {
     setRoutines((rs) => [...rs, copy]);
   };
 
+  const onImportFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const data = parseBackup(await file.text());
+      const haveRoutines = new Set(routines.map((r) => r.id));
+      const newRoutines = data.routines.filter(
+        (r) => r && typeof r.id === 'string' && Array.isArray(r.exercises) && !haveRoutines.has(r.id),
+      );
+      const haveCustom = new Set(custom.map((c) => c.id));
+      const newCustom = data.customExercises.filter((c) => c && !haveCustom.has(c.id));
+
+      setRoutines((rs) => [...rs, ...newRoutines]);
+      if (newCustom.length) setCustom([...custom, ...newCustom]);
+      alert(
+        `Imported ${newRoutines.length} routine(s). Skipped ${data.routines.length - newRoutines.length} already here.`,
+      );
+    } catch (err) {
+      alert('Import failed: ' + (err as Error).message);
+    }
+  };
+
   return (
     <div className="mx-auto min-h-screen max-w-md px-4 pb-32 pt-6">
       {open ? (
@@ -46,7 +74,30 @@ export default function App() {
         />
       ) : (
         <>
-          <h1 className="mb-6 text-3xl font-bold tracking-tight">My routines</h1>
+          <div className="mb-6 flex items-center justify-between">
+            <h1 className="text-3xl font-bold tracking-tight">My routines</h1>
+            <div className="flex gap-2">
+              <button
+                onClick={() => exportBackup(routines, custom)}
+                className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-slate-300 ring-1 ring-slate-800 active:bg-slate-800"
+              >
+                Export
+              </button>
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-slate-300 ring-1 ring-slate-800 active:bg-slate-800"
+              >
+                Import
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="application/json,.json"
+                onChange={onImportFile}
+                className="hidden"
+              />
+            </div>
+          </div>
 
           {routines.length === 0 && (
             <div className="rounded-2xl border border-dashed border-slate-700 p-8 text-center text-slate-400">
@@ -71,7 +122,7 @@ export default function App() {
                       {r.exercises.length} exercises · {setCount} sets
                     </div>
                   </button>
-                   <button
+                  <button
                     onClick={() => duplicateRoutine(r.id)}
                     aria-label="Duplicate routine"
                     className="px-3 py-4 text-slate-500 active:text-white"
@@ -101,5 +152,13 @@ export default function App() {
         </>
       )}
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ExercisesProvider>
+      <AppInner />
+    </ExercisesProvider>
   );
 }

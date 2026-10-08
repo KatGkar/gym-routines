@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import ExercisePicker from './ExercisePicker';
-import { exerciseById, imageUrl } from './exercises';
+import { imageUrl } from './exercises';
+import { useExercises } from './ExercisesContext';
 import { uid } from './utils';
 import type { Exercise, Routine, RoutineExercise, SetType, WorkoutSet } from './types';
 
@@ -20,6 +21,7 @@ const inputClass =
   'w-full rounded-lg bg-slate-800 px-2 py-2 text-center text-base text-white focus:outline-none focus:ring-2 focus:ring-emerald-500';
 
 export default function RoutineEditor({ routine, onChange, onBack }: Props) {
+  const { byId } = useExercises();
   const [picking, setPicking] = useState(false);
 
   const updateExercise = (id: string, fn: (re: RoutineExercise) => RoutineExercise) =>
@@ -46,7 +48,6 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
     [list[index], list[target]] = [list[target], list[index]];
     onChange({ ...routine, exercises: list });
   };
-
 
   const addSet = (reId: string, type: SetType) =>
     updateExercise(reId, (re) => ({
@@ -85,7 +86,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
 
       <div className="space-y-4">
         {routine.exercises.map((re, index) => {
-          const ex = exerciseById.get(re.exerciseId);
+          const ex = byId.get(re.exerciseId);
           const setLabels = labels(re.sets);
           return (
             <section key={re.id} className="rounded-2xl bg-slate-900 p-4 ring-1 ring-slate-800">
@@ -106,7 +107,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                     {ex?.primaryMuscles.join(', ')}
                   </div>
                 </div>
-                                <div className="flex shrink-0 items-center">
+                <div className="flex shrink-0 items-center">
                   <button
                     onClick={() => moveExercise(index, -1)}
                     disabled={index === 0}

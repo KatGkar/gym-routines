@@ -8,6 +8,7 @@ export interface Exercise {
   secondaryMuscles: string[];
   instructions: string[];
   images: string[];
+  custom?: boolean;
 }
 
 export type SetType = 'warmup' | 'normal';
