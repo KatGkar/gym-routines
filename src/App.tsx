@@ -21,6 +21,21 @@ export default function App() {
     }
   };
 
+  const duplicateRoutine = (id: string) => {
+    const src = routines.find((r) => r.id === id);
+    if (!src) return;
+    const copy: Routine = {
+      id: uid(),
+      name: src.name + ' (copy)',
+      exercises: src.exercises.map((re) => ({
+        ...re,
+        id: uid(),
+        sets: re.sets.map((s) => ({ ...s, id: uid() })),
+      })),
+    };
+    setRoutines((rs) => [...rs, copy]);
+  };
+
   return (
     <div className="mx-auto min-h-screen max-w-md px-4 pb-32 pt-6">
       {open ? (
@@ -55,6 +70,13 @@ export default function App() {
                     <div className="text-sm text-slate-400">
                       {r.exercises.length} exercises · {setCount} sets
                     </div>
+                  </button>
+                   <button
+                    onClick={() => duplicateRoutine(r.id)}
+                    aria-label="Duplicate routine"
+                    className="px-3 py-4 text-slate-500 active:text-white"
+                  >
+                    📋
                   </button>
                   <button
                     onClick={() => deleteRoutine(r.id)}

@@ -39,6 +39,15 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
   const removeExercise = (id: string) =>
     onChange({ ...routine, exercises: routine.exercises.filter((re) => re.id !== id) });
 
+  const moveExercise = (index: number, dir: -1 | 1) => {
+    const target = index + dir;
+    if (target < 0 || target >= routine.exercises.length) return;
+    const list = [...routine.exercises];
+    [list[index], list[target]] = [list[target], list[index]];
+    onChange({ ...routine, exercises: list });
+  };
+
+
   const addSet = (reId: string, type: SetType) =>
     updateExercise(reId, (re) => ({
       ...re,
@@ -75,7 +84,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
       />
 
       <div className="space-y-4">
-        {routine.exercises.map((re) => {
+        {routine.exercises.map((re, index) => {
           const ex = exerciseById.get(re.exerciseId);
           const setLabels = labels(re.sets);
           return (
@@ -97,13 +106,31 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                     {ex?.primaryMuscles.join(', ')}
                   </div>
                 </div>
-                <button
-                  onClick={() => removeExercise(re.id)}
-                  aria-label="Remove exercise"
-                  className="px-2 text-slate-500 active:text-red-400"
-                >
-                  ✕
-                </button>
+                                <div className="flex shrink-0 items-center">
+                  <button
+                    onClick={() => moveExercise(index, -1)}
+                    disabled={index === 0}
+                    aria-label="Move up"
+                    className="px-2 py-1 text-slate-400 active:text-white disabled:opacity-20"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    onClick={() => moveExercise(index, 1)}
+                    disabled={index === routine.exercises.length - 1}
+                    aria-label="Move down"
+                    className="px-2 py-1 text-slate-400 active:text-white disabled:opacity-20"
+                  >
+                    ↓
+                  </button>
+                  <button
+                    onClick={() => removeExercise(re.id)}
+                    aria-label="Remove exercise"
+                    className="px-2 py-1 text-slate-500 active:text-red-400"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
 
               {re.sets.length > 0 && (
