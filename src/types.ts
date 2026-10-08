@@ -18,6 +18,7 @@ export interface WorkoutSet {
   type: SetType;
   weightKg: number;
   reps: number;
+  repsMax?: number;
 }
 
 export interface RoutineExercise {
@@ -25,6 +26,7 @@ export interface RoutineExercise {
   exerciseId: string;
   sets: WorkoutSet[];
   notes?: string;
+  repMode?: 'fixed' | 'range';
 }
 
 export interface Routine {

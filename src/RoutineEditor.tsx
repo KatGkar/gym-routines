@@ -41,6 +41,17 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
   const removeExercise = (id: string) =>
     onChange({ ...routine, exercises: routine.exercises.filter((re) => re.id !== id) });
 
+    const setRepMode = (reId: string, mode: 'fixed' | 'range') =>
+    updateExercise(reId, (re) => ({
+      ...re,
+      repMode: mode,
+      sets: re.sets.map((s) =>
+        mode === 'range'
+          ? { ...s, repsMax: s.repsMax ?? s.reps + 2 }
+          : { ...s, repsMax: undefined },
+      ),
+    }));
+  
   const moveExercise = (index: number, dir: -1 | 1) => {
     const target = index + dir;
     if (target < 0 || target >= routine.exercises.length) return;
@@ -49,10 +60,19 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
     onChange({ ...routine, exercises: list });
   };
 
-  const addSet = (reId: string, type: SetType) =>
+    const addSet = (reId: string, type: SetType) =>
     updateExercise(reId, (re) => ({
       ...re,
-      sets: [...re.sets, { id: uid(), type, weightKg: 0, reps: 10 }],
+      sets: [
+        ...re.sets,
+        {
+          id: uid(),
+          type,
+          weightKg: 0,
+          reps: 10,
+          ...(re.repMode === 'range' ? { repsMax: 12 } : {}),
+        },
+      ],
     }));
 
   const updateSet = (reId: string, setId: string, patch: Partial<WorkoutSet>) =>
@@ -92,6 +112,10 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
         {routine.exercises.map((re, index) => {
           const ex = byId.get(re.exerciseId);
           const setLabels = labels(re.sets);
+          const range = re.repMode === 'range';
+          const gridCols = range
+            ? 'grid-cols-[2.5rem_1fr_1.6fr_2rem]'
+            : 'grid-cols-[2.5rem_1fr_1fr_2rem]';
           return (
             <section key={re.id} className="rounded-2xl bg-slate-900 p-4 ring-1 ring-slate-800">
               <div className="mb-3 flex items-center gap-3">
@@ -148,18 +172,42 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                 className="mb-3 w-full resize-none rounded-lg bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
 
+                            <div className="mb-2 flex items-center gap-2 text-xs text-slate-500">
+                <span>Reps</span>
+                <div className="flex rounded-lg bg-slate-800 p-0.5">
+                  <button
+                    onClick={() => setRepMode(re.id, 'fixed')}
+                    className={
+                      'rounded-md px-3 py-1 font-medium ' +
+                      (!range ? 'bg-emerald-500 text-slate-950' : 'text-slate-400')
+                    }
+                  >
+                    Fixed
+                  </button>
+                  <button
+                    onClick={() => setRepMode(re.id, 'range')}
+                    className={
+                      'rounded-md px-3 py-1 font-medium ' +
+                      (range ? 'bg-emerald-500 text-slate-950' : 'text-slate-400')
+                    }
+                  >
+                    Range
+                  </button>
+                </div>
+              </div>
+
               {re.sets.length > 0 && (
-                <div className="mb-1 grid grid-cols-[2.5rem_1fr_1fr_2rem] gap-2 px-0.5 text-center text-xs uppercase text-slate-500">
+                <div className={`mb-1 grid ${gridCols} gap-2 px-0.5 text-center text-xs uppercase text-slate-500`}>
                   <span>Set</span>
                   <span>kg</span>
-                  <span>Reps</span>
+                  <span>{range ? 'Range reps' : 'Reps'}</span>
                   <span />
                 </div>
               )}
 
               <div className="space-y-2">
                 {re.sets.map((s, i) => (
-                  <div key={s.id} className="grid grid-cols-[2.5rem_1fr_1fr_2rem] items-center gap-2">
+                <div key={s.id} className={`grid ${gridCols} items-center gap-2`}>
                     <button
                       onClick={() =>
                         updateSet(re.id, s.id, {
@@ -185,14 +233,36 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                       onChange={(e) => updateSet(re.id, s.id, { weightKg: Number(e.target.value) })}
                       className={inputClass}
                     />
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      placeholder="0"
-                      value={s.reps || ''}
-                      onChange={(e) => updateSet(re.id, s.id, { reps: Number(e.target.value) })}
-                      className={inputClass}
-                    />
+                                        {range ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          placeholder="8"
+                          value={s.reps || ''}
+                          onChange={(e) => updateSet(re.id, s.id, { reps: Number(e.target.value) })}
+                          className={inputClass + ' min-w-0'}
+                        />
+                        <span className="text-slate-500">–</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          placeholder="12"
+                          value={s.repsMax || ''}
+                          onChange={(e) => updateSet(re.id, s.id, { repsMax: Number(e.target.value) })}
+                          className={inputClass + ' min-w-0'}
+                        />
+                      </div>
+                    ) : (
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        placeholder="0"
+                        value={s.reps || ''}
+                        onChange={(e) => updateSet(re.id, s.id, { reps: Number(e.target.value) })}
+                        className={inputClass}
+                      />
+                    )}
                     <button
                       onClick={() => removeSet(re.id, s.id)}
                       aria-label="Remove set"
