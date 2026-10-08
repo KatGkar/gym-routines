@@ -1,0 +1,32 @@
+export interface Exercise {
+  id: string;
+  name: string;
+  equipment: string | null;
+  category: string;
+  level: string;
+  primaryMuscles: string[];
+  secondaryMuscles: string[];
+  instructions: string[];
+  images: string[];
+}
+
+export type SetType = 'warmup' | 'normal';
+
+export interface WorkoutSet {
+  id: string;
+  type: SetType;
+  weightKg: number;
+  reps: number;
+}
+
+export interface RoutineExercise {
+  id: string;
+  exerciseId: string;
+  sets: WorkoutSet[];
+}
+
+export interface Routine {
+  id: string;
+  name: string;
+  exercises: RoutineExercise[];
+}
