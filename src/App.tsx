@@ -22,7 +22,7 @@ export default function App() {
   };
 
   return (
-    <main style={{ maxWidth: 480, margin: '0 auto', padding: 16 }}>
+    <div className="mx-auto min-h-screen max-w-md px-4 pb-32 pt-6">
       {open ? (
         <RoutineEditor
           routine={open}
@@ -31,27 +31,53 @@ export default function App() {
         />
       ) : (
         <>
-          <h1>My routines</h1>
-          {routines.length === 0 && <p>No routines yet.</p>}
-          <ul style={{ listStyle: 'none', padding: 0 }}>
-            {routines.map((r) => (
-              <li
-                key={r.id}
-                style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #ccc' }}
-              >
-                <button onClick={() => setOpenId(r.id)} style={{ textAlign: 'left' }}>
-                  <strong>{r.name}</strong>
-                  <div style={{ fontSize: 13, opacity: 0.7 }}>
-                    {r.exercises.length} exercises
-                  </div>
-                </button>
-                <button onClick={() => deleteRoutine(r.id)}>Delete</button>
-              </li>
-            ))}
+          <h1 className="mb-6 text-3xl font-bold tracking-tight">My routines</h1>
+
+          {routines.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-slate-700 p-8 text-center text-slate-400">
+              No routines yet. Create your first one below.
+            </div>
+          )}
+
+          <ul className="space-y-3">
+            {routines.map((r) => {
+              const setCount = r.exercises.reduce((n, re) => n + re.sets.length, 0);
+              return (
+                <li
+                  key={r.id}
+                  className="flex items-center rounded-2xl bg-slate-900 ring-1 ring-slate-800"
+                >
+                  <button
+                    onClick={() => setOpenId(r.id)}
+                    className="flex-1 rounded-2xl px-4 py-4 text-left active:bg-slate-800"
+                  >
+                    <div className="text-lg font-semibold">{r.name || 'Untitled'}</div>
+                    <div className="text-sm text-slate-400">
+                      {r.exercises.length} exercises · {setCount} sets
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => deleteRoutine(r.id)}
+                    aria-label="Delete routine"
+                    className="px-4 py-4 text-slate-500 active:text-red-400"
+                  >
+                    🗑
+                  </button>
+                </li>
+              );
+            })}
           </ul>
-          <button onClick={createRoutine}>+ New routine</button>
+
+          <div className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-slate-950 via-slate-950/95 to-transparent px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-8">
+            <button
+              onClick={createRoutine}
+              className="mx-auto block w-full max-w-md rounded-2xl bg-emerald-500 py-4 text-base font-semibold text-slate-950 active:bg-emerald-400"
+            >
+              + New routine
+            </button>
+          </div>
         </>
       )}
-    </main>
+    </div>
   );
 }
