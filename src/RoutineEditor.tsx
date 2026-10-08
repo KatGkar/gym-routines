@@ -77,12 +77,16 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
         ← Routines
       </button>
 
-      <input
-        value={routine.name}
-        onChange={(e) => onChange({ ...routine, name: e.target.value })}
-        placeholder="Routine name"
-        className="mb-6 w-full bg-transparent text-3xl font-bold tracking-tight placeholder:text-slate-600 focus:outline-none"
-      />
+          <div className="mb-4 flex items-center gap-2 border-b-2 border-transparent focus-within:border-emerald-500">
+        <input
+          value={routine.name}
+          onChange={(e) => onChange({ ...routine, name: e.target.value })}
+          onFocus={(e) => e.target.select()}
+          placeholder="Routine name"
+          className="w-full bg-transparent py-2 text-2xl font-semibold placeholder:text-slate-400 focus:outline-none"
+        />
+        <span aria-hidden="true" className="text-2xl leading-none text-emerald-400">✎</span>
+      </div>
 
       <div className="space-y-4">
         {routine.exercises.map((re, index) => {
@@ -133,6 +137,16 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                   </button>
                 </div>
               </div>
+              
+              <textarea
+                value={re.notes ?? ''}
+                onChange={(e) =>
+                  updateExercise(re.id, (x) => ({ ...x, notes: e.target.value }))
+                }
+                placeholder="Notes (e.g. seat position 4)"
+                rows={2}
+                className="mb-3 w-full resize-none rounded-lg bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
 
               {re.sets.length > 0 && (
                 <div className="mb-1 grid grid-cols-[2.5rem_1fr_1fr_2rem] gap-2 px-0.5 text-center text-xs uppercase text-slate-500">

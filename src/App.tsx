@@ -74,29 +74,27 @@ function AppInner() {
         />
       ) : (
         <>
-          <div className="mb-6 flex items-center justify-between">
-            <h1 className="text-3xl font-bold tracking-tight">My routines</h1>
-            <div className="flex gap-2">
-              <button
-                onClick={() => exportBackup(routines, custom)}
-                className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-slate-300 ring-1 ring-slate-800 active:bg-slate-800"
-              >
-                Export
-              </button>
-              <button
-                onClick={() => fileRef.current?.click()}
-                className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-slate-300 ring-1 ring-slate-800 active:bg-slate-800"
-              >
-                Import
-              </button>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="application/json,.json"
-                onChange={onImportFile}
-                className="hidden"
-              />
-            </div>
+                    <h1 className="mb-4 text-center text-4xl font-bold tracking-tight">My routines</h1>
+          <div className="mb-6 flex justify-end gap-2">
+            <button
+              onClick={() => exportBackup(routines, custom)}
+              className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-slate-300 ring-1 ring-slate-800 active:bg-slate-800"
+            >
+              Export
+            </button>
+            <button
+              onClick={() => fileRef.current?.click()}
+              className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-slate-300 ring-1 ring-slate-800 active:bg-slate-800"
+            >
+              Import
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/json,.json"
+              onChange={onImportFile}
+              className="hidden"
+            />
           </div>
 
           {routines.length === 0 && (

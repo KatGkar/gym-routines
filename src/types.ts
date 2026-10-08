@@ -24,6 +24,7 @@ export interface RoutineExercise {
   id: string;
   exerciseId: string;
   sets: WorkoutSet[];
+  notes?: string;
 }
 
 export interface Routine {

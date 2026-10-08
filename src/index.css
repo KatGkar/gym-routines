@@ -1,13 +1,33 @@
 @import "tailwindcss";
 
+/* ===== COLOR THEME: edit only the hex values in this block ===== */
+@theme {
+  --color-slate-950: #1f1219;
+  --color-slate-900: #2d1a25;
+  --color-slate-800: #3d2433;
+  --color-slate-700: #54324a;
+  --color-slate-600: #7a5470;
+  --color-slate-500: #a98aa0;
+  --color-slate-400: #c4a9bb;
+  --color-slate-300: #dcc8d3;
+  --color-slate-200: #ecdfe6;
+  --color-slate-100: #f8f0f4;
+
+  --color-emerald-500: #f43f5e;
+  --color-emerald-400: #fb7185;
+}
+/* ================================================================ */
+
 :root {
   color-scheme: dark;
 }
 
+html,
 body {
   margin: 0;
-  background: #020617;
-  color: #f1f5f9;
+  min-height: 100%;
+  background: #26262b; /* must match slate-950 above */
+  color: #f4f4f5;
   font-family: system-ui, -apple-system, sans-serif;
   -webkit-tap-highlight-color: transparent;
 }

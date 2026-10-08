@@ -21,6 +21,7 @@ interface Ctx {
   custom: Exercise[];
   setCustom: (list: Exercise[]) => void;
   addCustom: (name: string, muscle: string, equipment: string) => Exercise;
+  removeCustom: (id: string) => void;
 }
 
 const ExercisesContext = createContext<Ctx | null>(null);
@@ -36,7 +37,7 @@ export function ExercisesProvider({ children }: { children: ReactNode }) {
     }
   }, [custom]);
 
-  const value = useMemo<Ctx>(() => {
+    const value = useMemo<Ctx>(() => {
     const all = [...custom, ...builtIn];
     return {
       all,
@@ -59,9 +60,9 @@ export function ExercisesProvider({ children }: { children: ReactNode }) {
         setCustom((c) => [ex, ...c]);
         return ex;
       },
+      removeCustom: (id) => setCustom((c) => c.filter((e) => e.id !== id)),
     };
   }, [custom]);
-
   return <ExercisesContext.Provider value={value}>{children}</ExercisesContext.Provider>;
 }
 

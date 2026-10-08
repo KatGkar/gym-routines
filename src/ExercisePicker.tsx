@@ -12,7 +12,7 @@ const fieldClass =
   'w-full rounded-xl bg-slate-900 px-4 py-3 text-base text-white ring-1 ring-slate-800 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500';
 
 export default function ExercisePicker({ onPick, onClose }: Props) {
-  const { all, addCustom } = useExercises();
+  const { all, addCustom, removeCustom } = useExercises();
   const [query, setQuery] = useState('');
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
@@ -103,10 +103,10 @@ export default function ExercisePicker({ onPick, onClose }: Props) {
 
       <ul className="mt-2 space-y-2">
         {results.map((e) => (
-          <li key={e.id}>
+          <li key={e.id} className="flex items-stretch gap-2">
             <button
               onClick={() => onPick(e)}
-              className="flex w-full items-center gap-3 rounded-xl bg-slate-900 p-3 text-left ring-1 ring-slate-800 active:bg-slate-800"
+              className="flex min-w-0 flex-1 items-center gap-3 rounded-xl bg-slate-900 p-3 text-left ring-1 ring-slate-800 active:bg-slate-800"
             >
               {e.images[0] ? (
                 <img
@@ -133,6 +133,23 @@ export default function ExercisePicker({ onPick, onClose }: Props) {
                 </div>
               </div>
             </button>
+            {e.custom && (
+              <button
+                onClick={() => {
+                  if (
+                    confirm(
+                      `Delete "${e.name}"? Routines that use it will show it as "Unknown exercise".`,
+                    )
+                  ) {
+                    removeCustom(e.id);
+                  }
+                }}
+                aria-label="Delete custom exercise"
+                className="rounded-xl bg-slate-900 px-3 text-slate-500 ring-1 ring-slate-800 active:text-red-400"
+              >
+                🗑
+              </button>
+            )}
           </li>
         ))}
         {results.length === 0 && (

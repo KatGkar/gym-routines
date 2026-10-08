@@ -15,7 +15,7 @@ export default defineConfig({
         name: 'Gym Routines',
         short_name: 'Routines',
         display: 'standalone',
-        background_color: '#020617',
+        background_color: '#26262b',
         theme_color: '#020617',
         icons: [
           { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
