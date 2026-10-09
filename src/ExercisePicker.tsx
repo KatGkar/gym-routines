@@ -22,7 +22,7 @@ export default function ExercisePicker({ onPick, onClose }: Props) {
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = q ? all.filter((e) => e.name.toLowerCase().includes(q)) : all;
-    return list.slice(0, 50);
+    return list;
   }, [query, all]);
 
   const startCreating = () => {
