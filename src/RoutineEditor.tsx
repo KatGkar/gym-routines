@@ -230,13 +230,19 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                       className={inputClass}
                     />
                                         {range ? (
-                      <div className="flex items-center gap-1">
+                                            <div className="flex items-center gap-1">
                         <input
                           type="number"
                           inputMode="numeric"
                           placeholder="8"
                           value={s.reps || ''}
-                          onChange={(e) => updateSet(re.id, s.id, { reps: Number(e.target.value) })}
+                          onChange={(e) => {
+                            const v = Number(e.target.value);
+                            updateSet(re.id, s.id, {
+                              reps: v,
+                              ...(s.repsMax !== undefined && v > s.repsMax ? { repsMax: v } : {}),
+                            });
+                          }}
                           className={inputClass + ' min-w-0'}
                         />
                         <span className="text-slate-500">–</span>
@@ -246,6 +252,11 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                           placeholder="12"
                           value={s.repsMax || ''}
                           onChange={(e) => updateSet(re.id, s.id, { repsMax: Number(e.target.value) })}
+                          onBlur={() => {
+                            if (s.repsMax !== undefined && s.repsMax > 0 && s.repsMax < s.reps) {
+                              updateSet(re.id, s.id, { repsMax: s.reps });
+                            }
+                          }}
                           className={inputClass + ' min-w-0'}
                         />
                       </div>
