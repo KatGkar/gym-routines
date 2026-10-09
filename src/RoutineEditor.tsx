@@ -172,35 +172,31 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                 className="mb-3 w-full resize-none rounded-lg bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
 
-                            <div className="mb-2 flex items-center gap-2 text-xs text-slate-500">
-                <span>Reps</span>
-                <div className="flex rounded-lg bg-slate-800 p-0.5">
-                  <button
-                    onClick={() => setRepMode(re.id, 'fixed')}
-                    className={
-                      'rounded-md px-3 py-1 font-medium ' +
-                      (!range ? 'bg-emerald-500 text-slate-950' : 'text-slate-400')
-                    }
-                  >
-                    Fixed
-                  </button>
-                  <button
-                    onClick={() => setRepMode(re.id, 'range')}
-                    className={
-                      'rounded-md px-3 py-1 font-medium ' +
-                      (range ? 'bg-emerald-500 text-slate-950' : 'text-slate-400')
-                    }
-                  >
-                    Range
-                  </button>
-                </div>
-              </div>
-
               {re.sets.length > 0 && (
                 <div className={`mb-1 grid ${gridCols} gap-2 px-0.5 text-center text-xs uppercase text-slate-500`}>
                   <span>Set</span>
                   <span>kg</span>
+                  <label className="relative flex items-center justify-center gap-1">
                   <span>{range ? 'Range reps' : 'Reps'}</span>
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 20 20"
+                    className="h-4 w-4 text-emerald-400"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round">
+                    <path d="M5 8l5 5 5-5" />
+                  </svg>
+                  <select
+                    value={range ? 'range' : 'fixed'}
+                    onChange={(e) => setRepMode(re.id, e.target.value as 'fixed' | 'range')}
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0">
+                    <option value="fixed">Reps</option>
+                    <option value="range">Range reps</option>
+                  </select>
+                  </label>
                   <span />
                 </div>
               )}
