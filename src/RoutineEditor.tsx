@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import type { KeyboardEvent } from 'react';
 import ExercisePicker from './ExercisePicker';
 import ImageViewer from './ImageViewer';
 import { imageUrl } from './exercises';
 import { useExercises } from './ExercisesContext';
 import { uid } from './utils';
+
 import type {
   CardioField,
   Exercise,
@@ -65,6 +67,12 @@ const defaultKind = (e: Exercise): ExerciseKind => {
 const labels = (sets: WorkoutSet[]) => {
   let n = 0;
   return sets.map((s) => (s.type === 'warmup' ? 'W' : String(++n)));
+};
+
+// Never allow negative or invalid numbers
+const num = (v: string) => Math.max(0, Number(v) || 0);
+const blockMinus = (e: KeyboardEvent<HTMLInputElement>) => {
+  if (['-', '+', 'e', 'E'].includes(e.key)) e.preventDefault();
 };
 
 const inputClass =
@@ -383,10 +391,10 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                             value={s[key] || ''}
                             onChange={(e) =>
                               updateSet(re.id, s.id, {
-                                [key]: Number(e.target.value),
+                                [key]: num(e.target.value),
                               } as Partial<WorkoutSet>)
                             }
-                            className={inputClass + ' min-w-0'}
+                            min={0} onKeyDown={blockMinus} className={inputClass + ' min-w-0'}
                           />
                         );
                       }
@@ -398,7 +406,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                             placeholder="8"
                             value={s.reps || ''}
                             onChange={(e) => {
-                              const v = Number(e.target.value);
+                              const v = num(e.target.value);
                               updateSet(re.id, s.id, {
                                 reps: v,
                                 ...(s.repsMax !== undefined && v > s.repsMax
@@ -406,7 +414,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                                   : {}),
                               });
                             }}
-                            className={inputClass + ' min-w-0'}
+                            min={0} onKeyDown={blockMinus} className={inputClass + ' min-w-0'}
                           />
                           <span className="text-slate-500">–</span>
                           <input
@@ -415,7 +423,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                             placeholder="12"
                             value={s.repsMax || ''}
                             onChange={(e) =>
-                              updateSet(re.id, s.id, { repsMax: Number(e.target.value) })
+                              updateSet(re.id, s.id, { repsMax: num(e.target.value) })
                             }
                             onBlur={() => {
                               if (
@@ -426,7 +434,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                                 updateSet(re.id, s.id, { repsMax: s.reps });
                               }
                             }}
-                            className={inputClass + ' min-w-0'}
+                            min={0} onKeyDown={blockMinus} className={inputClass + ' min-w-0'}
                           />
                         </div>
                       ) : (
@@ -437,9 +445,9 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                           placeholder="0"
                           value={s.reps || ''}
                           onChange={(e) =>
-                            updateSet(re.id, s.id, { reps: Number(e.target.value) })
+                            updateSet(re.id, s.id, { reps: num(e.target.value) })
                           }
-                          className={inputClass + ' min-w-0'}
+                          min={0} onKeyDown={blockMinus} className={inputClass + ' min-w-0'}
                         />
                       );
                     })}
