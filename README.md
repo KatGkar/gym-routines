@@ -24,7 +24,7 @@ npm run dev
 ## Credits
 
 - Exercise data and images: [free-exercise-db](https://github.com/yuhonas/free-exercise-db) by yuhonas (public domain / Unlicense), based on the original dataset by Ollie Jennings.
-- App icon: [Exercise icons created by Magnific - Flaticon](https://www.flaticon.com/free-icons/exercise)
+- App icon: Icons made by [Magnific](https://www.magnific.com) from [www.flaticon.com](https://www.flaticon.com)
 
 ## License
 
