@@ -4,6 +4,8 @@ export interface Exercise {
   equipment: string | null;
   category: string;
   level: string;
+  force?: string | null;
+  mechanic?: string | null;
   primaryMuscles: string[];
   secondaryMuscles: string[];
   instructions: string[];

@@ -43,7 +43,30 @@ export default function ImageViewer({ exercise, onClose }: Props) {
             />
           ))}
         </div>
-
+                {(exercise.category || exercise.level || exercise.force || exercise.mechanic) && (
+          <div className="mt-4 flex flex-wrap gap-2 text-xs capitalize">
+            {exercise.category && (
+              <span className="rounded-full bg-slate-800 px-3 py-1 text-slate-300">
+                Category: {exercise.category}
+              </span>
+            )}
+            {exercise.level && (
+              <span className="rounded-full bg-slate-800 px-3 py-1 text-slate-300">
+                Level: {exercise.level}
+              </span>
+            )}
+            {exercise.force && (
+              <span className="rounded-full bg-slate-800 px-3 py-1 text-slate-300">
+                Force: {exercise.force}
+              </span>
+            )}
+            {exercise.mechanic && (
+              <span className="rounded-full bg-slate-800 px-3 py-1 text-slate-300">
+                Type: {exercise.mechanic}
+              </span>
+            )}
+          </div>
+        )}
         {exercise.instructions.length > 0 && (
           <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm text-slate-300">
             {exercise.instructions.map((step, i) => (

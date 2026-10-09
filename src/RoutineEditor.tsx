@@ -250,8 +250,11 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                   <div className="font-semibold text-emerald-400">
                     {ex?.name ?? 'Unknown exercise'}
                   </div>
-                  <div className="text-xs capitalize text-slate-500">
-                    {ex?.primaryMuscles.join(', ')}
+                  <div className="flex flex-wrap gap-x-2 text-xs capitalize">
+                    <span className="text-slate-300">{ex?.primaryMuscles.join(', ')}</span>
+                    {ex && ex.secondaryMuscles.length > 0 && (
+                      <span className="text-sky-400">{ex.secondaryMuscles.join(', ')}</span>
+                    )}
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center">
