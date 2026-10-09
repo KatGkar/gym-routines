@@ -37,7 +37,7 @@ export function ExercisesProvider({ children }: { children: ReactNode }) {
     }
   }, [custom]);
 
-    const value = useMemo<Ctx>(() => {
+  const value = useMemo<Ctx>(() => {
     const all = [...custom, ...builtIn];
     return {
       all,

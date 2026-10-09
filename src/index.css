@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
   /* ===== SURFACES: your 4 colors. 950 is the lightest layer, 700 the deepest ===== */
@@ -14,16 +14,16 @@
   --color-slate-300: #483a54; /* button text */
   --color-slate-200: #352a3f; /* set numbers */
   --color-slate-100: #1f1727; /* main text */
-  --color-white: #1f1727;     /* text that was white on dark */
+  --color-white: #1f1727; /* text that was white on dark */
 
   /* ===== ACCENT: deep purple-magenta ===== */
   --color-emerald-500: #600081; /* buttons, outlines, progress bars */
   --color-emerald-400: #600081; /* accent text and pressed buttons */
 
   /* fixed colors, tuned for light backgrounds */
-  --color-sky-400: #0f766e;   /* secondary muscles */
+  --color-sky-400: #0f766e; /* secondary muscles */
   --color-amber-400: #b45309; /* warmup sets */
-  --color-red-400: #dc2626;   /* delete hover */
+  --color-red-400: #dc2626; /* delete hover */
 }
 
 :root {
@@ -35,7 +35,10 @@ body {
   margin: 0;
   min-height: 100%;
   background: #f3eee6; /* must be the same as slate-950 */
-  color: #1f1727;      /* must be the same as slate-100 */
-  font-family: system-ui, -apple-system, sans-serif;
+  color: #1f1727; /* must be the same as slate-100 */
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
   -webkit-tap-highlight-color: transparent;
 }

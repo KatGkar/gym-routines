@@ -105,14 +105,14 @@ function AppInner() {
             r.id !== session.routineId
               ? r
               : {
-                ...r,
-                exercises: r.exercises.map((re) => {
-                  const used = session.exercises.find((x) => x.id === re.id);
-                  return used
-                    ? { ...re, sets: used.sets.map((s) => ({ ...s, done: undefined })) }
-                    : re;
-                }),
-              },
+                  ...r,
+                  exercises: r.exercises.map((re) => {
+                    const used = session.exercises.find((x) => x.id === re.id);
+                    return used
+                      ? { ...re, sets: used.sets.map((s) => ({ ...s, done: undefined })) }
+                      : re;
+                  }),
+                },
           ),
         );
       }
@@ -129,7 +129,8 @@ function AppInner() {
       const data = parseBackup(await file.text());
       const haveRoutines = new Set(routines.map((r) => r.id));
       const newRoutines = data.routines.filter(
-        (r) => r && typeof r.id === 'string' && Array.isArray(r.exercises) && !haveRoutines.has(r.id),
+        (r) =>
+          r && typeof r.id === 'string' && Array.isArray(r.exercises) && !haveRoutines.has(r.id),
       );
       const haveCustom = new Set(custom.map((c) => c.id));
       const newCustom = data.customExercises.filter((c) => c && !haveCustom.has(c.id));
@@ -144,7 +145,8 @@ function AppInner() {
         setHistory((h) => [...h, ...newHistory].sort((a, b) => b.startedAt - a.startedAt));
       }
       alert(
-        `Imported ${newRoutines.length} routine(s) and ${newHistory.length} workout(s). Skipped ${data.routines.length - newRoutines.length
+        `Imported ${newRoutines.length} routine(s) and ${newHistory.length} workout(s). Skipped ${
+          data.routines.length - newRoutines.length
         } routine(s) already here.`,
       );
     } catch (err) {
@@ -214,7 +216,6 @@ function AppInner() {
               onChange={onImportFile}
               className="hidden"
             />
-            
           </div>
 
           {session && (
