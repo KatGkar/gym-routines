@@ -1,31 +1,126 @@
 import { useMemo, useState } from 'react';
+import ImageViewer from './ImageViewer';
 import { imageUrl } from './exercises';
 import { useExercises } from './ExercisesContext';
 import type { Exercise } from './types';
-import ImageViewer from './ImageViewer';
 
 interface Props {
   onPick: (e: Exercise) => void;
   onClose: () => void;
 }
 
+interface Filters {
+  muscle: string;
+  secondary: string;
+  equipment: string;
+  category: string;
+  level: string;
+}
+
+const NO_FILTERS: Filters = {
+  muscle: 'all',
+  secondary: 'all',
+  equipment: 'all',
+  category: 'all',
+  level: 'all',
+};
+
+const LEVEL_ORDER = ['beginner', 'intermediate', 'expert'];
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const unique = (xs: string[]) => Array.from(new Set(xs)).sort();
+
 const fieldClass =
   'w-full rounded-xl bg-slate-900 px-4 py-3 text-base text-white ring-1 ring-slate-800 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500';
+
+const selectClass = (active: boolean) =>
+  'w-full rounded-xl bg-slate-900 px-3 py-2 text-sm ring-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 ' +
+  (active ? 'text-emerald-400 ring-emerald-500' : 'text-white ring-slate-800');
 
 export default function ExercisePicker({ onPick, onClose }: Props) {
   const { all, addCustom, removeCustom } = useExercises();
   const [query, setQuery] = useState('');
+  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const [showFilters, setShowFilters] = useState(false);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
   const [muscle, setMuscle] = useState('');
   const [equipment, setEquipment] = useState('');
   const [viewing, setViewing] = useState<Exercise | null>(null);
 
-  const results = useMemo(() => {
+  const setFilter = (key: keyof Filters, value: string) =>
+    setFilters((f) => ({ ...f, [key]: value }));
+
+  const activeCount = Object.values(filters).filter((v) => v !== 'all').length;
+  const hasAnything = activeCount > 0 || query.trim() !== '';
+
+  const clearAll = () => {
+    setFilters(NO_FILTERS);
+    setQuery('');
+  };
+
+  // Dropdown options are built from the exercise data (including custom ones)
+  const options = useMemo(() => {
+    const levels = unique(all.map((e) => e.level).filter(Boolean)).sort(
+      (a, b) => LEVEL_ORDER.indexOf(a) - LEVEL_ORDER.indexOf(b),
+    );
+    return {
+      muscle: unique(all.flatMap((e) => e.primaryMuscles)),
+      secondary: unique(all.flatMap((e) => e.secondaryMuscles)),
+      equipment: unique(all.map((e) => e.equipment).filter((x): x is string => !!x)),
+      category: unique(all.map((e) => e.category).filter(Boolean)),
+      level: levels,
+    };
+  }, [all]);
+
+  const selects: {
+    key: keyof Filters;
+    allLabel: string;
+    items: { value: string; label: string }[];
+  }[] = [
+    {
+      key: 'muscle',
+      allLabel: 'All muscles',
+      items: options.muscle.map((m) => ({ value: m, label: cap(m) })),
+    },
+    {
+      key: 'secondary',
+      allLabel: 'Any secondary muscle',
+      items: options.secondary.map((m) => ({ value: m, label: cap(m) })),
+    },
+    {
+      key: 'equipment',
+      allLabel: 'All equipment',
+      items: [
+        { value: 'none', label: 'No equipment' },
+        ...options.equipment.map((m) => ({ value: m, label: cap(m) })),
+      ],
+    },
+    {
+      key: 'category',
+      allLabel: 'All categories',
+      items: options.category.map((m) => ({ value: m, label: cap(m) })),
+    },
+    {
+      key: 'level',
+      allLabel: 'All levels',
+      items: options.level.map((m) => ({ value: m, label: cap(m) })),
+    },
+  ];
+
+  const matches = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const list = q ? all.filter((e) => e.name.toLowerCase().includes(q)) : all;
-    return list;
-  }, [query, all]);
+    return all.filter(
+      (e) =>
+        (!q || e.name.toLowerCase().includes(q)) &&
+        (filters.muscle === 'all' || e.primaryMuscles.includes(filters.muscle)) &&
+        (filters.secondary === 'all' || e.secondaryMuscles.includes(filters.secondary)) &&
+        (filters.equipment === 'all' ||
+          (filters.equipment === 'none' ? !e.equipment : e.equipment === filters.equipment)) &&
+        (filters.category === 'all' || e.category === filters.category) &&
+        (filters.level === 'all' || e.level === filters.level),
+    );
+  }, [query, all, filters]);
 
   const startCreating = () => {
     setName(query.trim());
@@ -42,7 +137,10 @@ export default function ExercisePicker({ onPick, onClose }: Props) {
       <div>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-2xl font-bold">Custom exercise</h2>
-          <button onClick={() => setCreating(false)} className="px-2 py-2 text-slate-400 active:text-white">
+          <button
+            onClick={() => setCreating(false)}
+            className="px-2 py-2 text-slate-400 active:text-white"
+          >
             Back
           </button>
         </div>
@@ -80,13 +178,14 @@ export default function ExercisePicker({ onPick, onClose }: Props) {
 
   return (
     <div>
-      <div className="sticky top-0 -mx-4 bg-slate-950/95 px-4 pb-3 pt-1 backdrop-blur">
+      <div className="sticky top-0 z-10 -mx-4 bg-slate-950/95 px-4 pb-3 pt-1 backdrop-blur">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-2xl font-bold">Add exercise</h2>
           <button onClick={onClose} className="px-2 py-2 text-slate-400 active:text-white">
             Cancel
           </button>
         </div>
+
         <input
           type="search"
           autoFocus
@@ -95,17 +194,58 @@ export default function ExercisePicker({ onPick, onClose }: Props) {
           onChange={(e) => setQuery(e.target.value)}
           className={fieldClass}
         />
-        <button
-          onClick={startCreating}
-          className="mt-2 w-full rounded-xl bg-slate-900 py-2 text-sm font-medium text-emerald-400 ring-1 ring-slate-800 active:bg-slate-800"
-        >
-          + Create custom exercise
-        </button>
+
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setShowFilters((v) => !v)}
+            className={
+              'rounded-xl bg-slate-900 py-2 text-sm font-medium ring-1 active:bg-slate-800 ' +
+              (activeCount > 0 ? 'text-emerald-400 ring-emerald-500' : 'text-slate-300 ring-slate-800')
+            }
+          >
+            Filters{activeCount > 0 ? ` (${activeCount})` : ''} {showFilters ? '▴' : '▾'}
+          </button>
+          <button
+            onClick={startCreating}
+            className="rounded-xl bg-slate-900 py-2 text-sm font-medium text-emerald-400 ring-1 ring-slate-800 active:bg-slate-800"
+          >
+            + Custom exercise
+          </button>
+        </div>
+
+        {showFilters && (
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {selects.map((s) => (
+              <select
+                key={s.key}
+                value={filters[s.key]}
+                onChange={(e) => setFilter(s.key, e.target.value)}
+                className={selectClass(filters[s.key] !== 'all')}
+              >
+                <option value="all">{s.allLabel}</option>
+                {s.items.map((it) => (
+                  <option key={it.value} value={it.value}>
+                    {it.label}
+                  </option>
+                ))}
+              </select>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+          <span>{matches.length} exercises</span>
+          {hasAnything && (
+            <button onClick={clearAll} className="px-1 py-1 text-sm text-emerald-400">
+              Clear filters
+            </button>
+          )}
+        </div>
       </div>
 
       <ul className="mt-2 space-y-2">
-        {results.map((e) => (
-                    <li key={e.id} className="flex items-stretch gap-2">
+        {matches.map((e) => (
+          <li key={e.id} className="flex items-stretch gap-2">
             <div className="flex min-w-0 flex-1 items-center gap-3 rounded-xl bg-slate-900 p-3 ring-1 ring-slate-800">
               {e.images[0] ? (
                 <button
@@ -141,7 +281,9 @@ export default function ExercisePicker({ onPick, onClose }: Props) {
                     {e.equipment ?? 'no equipment'}
                   </span>
                   {e.custom && (
-                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-400">custom</span>
+                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-400">
+                      custom
+                    </span>
                   )}
                 </div>
               </button>
@@ -165,12 +307,12 @@ export default function ExercisePicker({ onPick, onClose }: Props) {
             )}
           </li>
         ))}
-        {results.length === 0 && (
+        {matches.length === 0 && (
           <li className="py-8 text-center text-slate-500">
-            No exercises found. Create a custom one above.
+            No exercises found. Try clearing the filters or create a custom exercise.
           </li>
         )}
-        </ul>
+      </ul>
 
       {viewing && <ImageViewer exercise={viewing} onClose={() => setViewing(null)} />}
     </div>
