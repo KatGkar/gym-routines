@@ -74,7 +74,7 @@ function AppInner() {
         />
       ) : (
         <>
-                    <h1 className="mb-4 text-center text-4xl font-bold tracking-tight">My routines</h1>
+        <h1 className="mb-4 text-center text-4xl font-bold tracking-tight">My routines</h1>
           <div className="mb-6 flex justify-end gap-2">
             <button
               onClick={() => exportBackup(routines, custom)}
@@ -138,7 +138,18 @@ function AppInner() {
               );
             })}
           </ul>
-
+                    <p className="mt-8 text-center text-xs text-slate-500">
+            Icon:{' '}
+            <a
+              href="https://www.flaticon.com/free-icons/exercise"
+              title="exercise icons"
+              target="_blank"
+              rel="noreferrer"
+              className="underline"
+            >
+              Exercise icons created by Magnific - Flaticon
+            </a>
+          </p>
           <div className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-slate-950 via-slate-950/95 to-transparent px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-8">
             <button
               onClick={createRoutine}
