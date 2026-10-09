@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { imageUrl } from './exercises';
 import { useExercises } from './ExercisesContext';
 import type { Exercise } from './types';
+import ImageViewer from './ImageViewer';
 
 interface Props {
   onPick: (e: Exercise) => void;
@@ -18,6 +19,7 @@ export default function ExercisePicker({ onPick, onClose }: Props) {
   const [name, setName] = useState('');
   const [muscle, setMuscle] = useState('');
   const [equipment, setEquipment] = useState('');
+  const [viewing, setViewing] = useState<Exercise | null>(null);
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -103,22 +105,28 @@ export default function ExercisePicker({ onPick, onClose }: Props) {
 
       <ul className="mt-2 space-y-2">
         {results.map((e) => (
-          <li key={e.id} className="flex items-stretch gap-2">
-            <button
-              onClick={() => onPick(e)}
-              className="flex min-w-0 flex-1 items-center gap-3 rounded-xl bg-slate-900 p-3 text-left ring-1 ring-slate-800 active:bg-slate-800"
-            >
+                    <li key={e.id} className="flex items-stretch gap-2">
+            <div className="flex min-w-0 flex-1 items-center gap-3 rounded-xl bg-slate-900 p-3 ring-1 ring-slate-800">
               {e.images[0] ? (
-                <img
-                  src={imageUrl(e.images[0])}
-                  alt=""
-                  loading="lazy"
-                  className="h-14 w-14 shrink-0 rounded-lg bg-slate-800 object-cover"
-                />
+                <button
+                  onClick={() => setViewing(e)}
+                  aria-label="View large photo"
+                  className="shrink-0"
+                >
+                  <img
+                    src={imageUrl(e.images[0])}
+                    alt=""
+                    loading="lazy"
+                    className="h-16 w-16 rounded-lg bg-slate-800 object-cover"
+                  />
+                </button>
               ) : (
-                <div className="h-14 w-14 shrink-0 rounded-lg bg-slate-800" />
+                <div className="h-16 w-16 shrink-0 rounded-lg bg-slate-800" />
               )}
-              <div className="min-w-0">
+              <button
+                onClick={() => onPick(e)}
+                className="min-w-0 flex-1 text-left active:opacity-70"
+              >
                 <div className="font-medium">{e.name}</div>
                 <div className="mt-1 flex flex-wrap gap-2 text-xs">
                   <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 capitalize text-emerald-400">
@@ -131,8 +139,8 @@ export default function ExercisePicker({ onPick, onClose }: Props) {
                     <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-400">custom</span>
                   )}
                 </div>
-              </div>
-            </button>
+              </button>
+            </div>
             {e.custom && (
               <button
                 onClick={() => {
@@ -157,7 +165,9 @@ export default function ExercisePicker({ onPick, onClose }: Props) {
             No exercises found. Create a custom one above.
           </li>
         )}
-      </ul>
+        </ul>
+
+      {viewing && <ImageViewer exercise={viewing} onClose={() => setViewing(null)} />}
     </div>
   );
 }

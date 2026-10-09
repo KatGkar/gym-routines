@@ -4,6 +4,7 @@ import { imageUrl } from './exercises';
 import { useExercises } from './ExercisesContext';
 import { uid } from './utils';
 import type { Exercise, Routine, RoutineExercise, SetType, WorkoutSet } from './types';
+import ImageViewer from './ImageViewer';
 
 interface Props {
   routine: Routine;
@@ -21,24 +22,25 @@ const inputClass =
   'w-full rounded-lg bg-slate-800 px-2 py-2 text-center text-base text-white focus:outline-none focus:ring-2 focus:ring-emerald-500';
 
 export default function RoutineEditor({ routine, onChange, onBack }: Props) {
-  const { byId } = useExercises();
-  const [picking, setPicking] = useState(false);
+    const { byId } = useExercises();
+    const [picking, setPicking] = useState(false);
+    const [viewing, setViewing] = useState<Exercise | null>(null);
 
-  const updateExercise = (id: string, fn: (re: RoutineExercise) => RoutineExercise) =>
-    onChange({
-      ...routine,
-      exercises: routine.exercises.map((re) => (re.id === id ? fn(re) : re)),
+    const updateExercise = (id: string, fn: (re: RoutineExercise) => RoutineExercise) =>
+        onChange({
+        ...routine,
+        exercises: routine.exercises.map((re) => (re.id === id ? fn(re) : re)),
     });
 
-  const addExercise = (e: Exercise) => {
-    onChange({
-      ...routine,
-      exercises: [...routine.exercises, { id: uid(), exerciseId: e.id, sets: [] }],
-    });
-    setPicking(false);
-  };
+    const addExercise = (e: Exercise) => {
+        onChange({
+        ...routine,
+        exercises: [...routine.exercises, { id: uid(), exerciseId: e.id, sets: [] }],
+        });
+        setPicking(false);
+    };
 
-  const removeExercise = (id: string) =>
+    const removeExercise = (id: string) =>
     onChange({ ...routine, exercises: routine.exercises.filter((re) => re.id !== id) });
 
     const setRepMode = (reId: string, mode: 'fixed' | 'range') =>
@@ -120,12 +122,18 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
             <section key={re.id} className="rounded-2xl bg-slate-900 p-4 ring-1 ring-slate-800">
               <div className="mb-3 flex items-center gap-3">
                 {ex?.images[0] && (
-                  <img
-                    src={imageUrl(ex.images[0])}
-                    alt=""
-                    loading="lazy"
-                    className="h-12 w-12 shrink-0 rounded-lg bg-slate-800 object-cover"
-                  />
+                  <button
+                    onClick={() => setViewing(ex)}
+                    aria-label="View large photo"
+                    className="shrink-0"
+                  >
+                    <img
+                      src={imageUrl(ex.images[0])}
+                      alt=""
+                      loading="lazy"
+                      className="h-14 w-14 rounded-lg bg-slate-800 object-cover"
+                    />
+                  </button>
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold text-emerald-400">
@@ -300,12 +308,14 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
         })}
       </div>
 
-      <button
+    <button
         onClick={() => setPicking(true)}
         className="mt-6 w-full rounded-2xl bg-emerald-500 py-4 text-base font-semibold text-slate-950 active:bg-emerald-400"
       >
         + Add exercise
       </button>
+
+      {viewing && <ImageViewer exercise={viewing} onClose={() => setViewing(null)} />}
     </div>
   );
 }
