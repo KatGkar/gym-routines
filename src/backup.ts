@@ -1,4 +1,4 @@
-import type { Exercise, Routine } from './types';
+import type { Exercise, FinishedWorkout, Routine } from './types';
 
 export interface BackupFile {
   app: 'gym-routines';
@@ -6,15 +6,21 @@ export interface BackupFile {
   exportedAt: string;
   routines: Routine[];
   customExercises: Exercise[];
+  history: FinishedWorkout[];
 }
 
-export async function exportBackup(routines: Routine[], customExercises: Exercise[]) {
+export async function exportBackup(
+  routines: Routine[],
+  customExercises: Exercise[],
+  history: FinishedWorkout[],
+) {
   const data: BackupFile = {
     app: 'gym-routines',
     version: 1,
     exportedAt: new Date().toISOString(),
     routines,
     customExercises,
+    history,
   };
   const name = `gym-routines-${new Date().toISOString().slice(0, 10)}.json`;
   const file = new File([JSON.stringify(data, null, 2)], name, { type: 'application/json' });
@@ -46,5 +52,6 @@ export function parseBackup(text: string): BackupFile {
   return {
     ...data,
     customExercises: Array.isArray(data.customExercises) ? data.customExercises : [],
+    history: Array.isArray(data.history) ? data.history : [],
   };
 }

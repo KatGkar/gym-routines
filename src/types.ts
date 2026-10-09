@@ -30,6 +30,7 @@ export interface WorkoutSet {
   distanceKm?: number;
   speedKmh?: number;
   inclinePct?: number;
+  done?: boolean;
 }
 
 export interface RoutineExercise {
@@ -46,4 +47,28 @@ export interface Routine {
   id: string;
   name: string;
   exercises: RoutineExercise[];
+}
+
+// A workout in progress (a copy of a routine with done flags)
+export interface WorkoutSession {
+  id: string;
+  routineId: string;
+  routineName: string;
+  startedAt: number;
+  accumulatedMs: number; // time counted before the last resume
+  resumedAt: number | null; // null = paused
+  exercises: RoutineExercise[];
+}
+
+export interface FinishedExercise extends RoutineExercise {
+  name: string;
+}
+
+export interface FinishedWorkout {
+  id: string;
+  routineId: string;
+  routineName: string;
+  startedAt: number;
+  durationMs: number;
+  exercises: FinishedExercise[];
 }
