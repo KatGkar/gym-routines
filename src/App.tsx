@@ -11,6 +11,7 @@ import { exportBackup, parseBackup } from './backup';
 import { elapsedMs } from './session';
 import { uid } from './utils';
 import type { FinishedWorkout, Routine, WorkoutSession } from './types';
+import { CopyIcon, PlayIcon, TrashIcon } from './icons';
 
 type View = 'routines' | 'history' | 'workout';
 
@@ -104,14 +105,14 @@ function AppInner() {
             r.id !== session.routineId
               ? r
               : {
-                  ...r,
-                  exercises: r.exercises.map((re) => {
-                    const used = session.exercises.find((x) => x.id === re.id);
-                    return used
-                      ? { ...re, sets: used.sets.map((s) => ({ ...s, done: undefined })) }
-                      : re;
-                  }),
-                },
+                ...r,
+                exercises: r.exercises.map((re) => {
+                  const used = session.exercises.find((x) => x.id === re.id);
+                  return used
+                    ? { ...re, sets: used.sets.map((s) => ({ ...s, done: undefined })) }
+                    : re;
+                }),
+              },
           ),
         );
       }
@@ -143,8 +144,7 @@ function AppInner() {
         setHistory((h) => [...h, ...newHistory].sort((a, b) => b.startedAt - a.startedAt));
       }
       alert(
-        `Imported ${newRoutines.length} routine(s) and ${newHistory.length} workout(s). Skipped ${
-          data.routines.length - newRoutines.length
+        `Imported ${newRoutines.length} routine(s) and ${newHistory.length} workout(s). Skipped ${data.routines.length - newRoutines.length
         } routine(s) already here.`,
       );
     } catch (err) {
@@ -178,7 +178,7 @@ function AppInner() {
   }
 
   return (
-    <div className="mx-auto min-h-screen max-w-md px-4 pb-32 pt-6">
+    <div className="mx-auto min-h-screen max-w-md px-4 pb-44 pt-6">
       {open ? (
         <RoutineEditor
           routine={open}
@@ -214,6 +214,7 @@ function AppInner() {
               onChange={onImportFile}
               className="hidden"
             />
+            
           </div>
 
           {session && (
@@ -239,7 +240,7 @@ function AppInner() {
             {routines.map((r) => {
               const setCount = r.exercises.reduce((n, re) => n + re.sets.length, 0);
               return (
-                                <li
+                <li
                   key={r.id}
                   className="flex items-center rounded-2xl bg-slate-900 ring-1 ring-slate-800"
                 >
@@ -257,49 +258,57 @@ function AppInner() {
                   <button
                     onClick={() => startWorkout(r)}
                     aria-label="Start workout"
-                    className="shrink-0 px-3 py-4 text-emerald-400 active:text-white"
+                    className="shrink-0 px-3 py-4 text-emerald-400 active:text-slate-100"
                   >
-                    ▶
+                    <PlayIcon className="h-5 w-5" />
                   </button>
                   <button
                     onClick={() => duplicateRoutine(r.id)}
                     aria-label="Duplicate routine"
-                    className="shrink-0 px-3 py-4 text-slate-500 active:text-white"
+                    className="shrink-0 px-3 py-4 text-slate-500 active:text-slate-100"
                   >
-                    📋
+                    <CopyIcon className="h-5 w-5" />
                   </button>
                   <button
                     onClick={() => deleteRoutine(r.id)}
                     aria-label="Delete routine"
                     className="shrink-0 px-3 py-4 text-slate-500 active:text-red-400"
                   >
-                    🗑
+                    <TrashIcon className="h-5 w-5" />
                   </button>
                 </li>
               );
             })}
           </ul>
 
-          <p className="mt-8 text-center text-xs text-slate-500">
-            Icon:{' '}
-            <a
-              href="https://www.flaticon.com/free-icons/exercise"
-              title="exercise icons"
-              target="_blank"
-              rel="noreferrer"
-              className="underline"
-            >
-              Exercise icons created by Magnific - Flaticon
-            </a>
-          </p>
-
-          <div className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-slate-950 via-slate-950/95 to-transparent px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-8">
+          <div className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-slate-950 via-slate-950/95 to-transparent px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-8">
             <button
               onClick={createRoutine}
               className="mx-auto block w-full max-w-md rounded-2xl bg-emerald-500 py-4 text-base font-semibold text-slate-950 active:bg-emerald-400"
             >
-              + New routine
+              New routine
             </button>
+            <p className="mx-auto mt-2 max-w-md text-center text-[11px] leading-tight text-slate-500">
+              Icon:{' '}
+              <a
+                href="https://www.flaticon.com/free-icons/exercise"
+                title="exercise icons"
+                target="_blank"
+                rel="noreferrer"
+                className="underline"
+              >
+                Exercise icons created by Magnific - Flaticon
+              </a>
+              {' · '}Exercises:{' '}
+              <a
+                href="https://github.com/yuhonas/free-exercise-db"
+                target="_blank"
+                rel="noreferrer"
+                className="underline"
+              >
+                free-exercise-db
+              </a>
+            </p>
           </div>
         </>
       )}
