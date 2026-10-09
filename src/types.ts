@@ -13,12 +13,21 @@ export interface Exercise {
 
 export type SetType = 'warmup' | 'normal';
 
+export type ExerciseKind = 'strength' | 'bodyweight' | 'timed' | 'cardio';
+
+export type CardioField = 'weightKg' | 'minutes' | 'distanceKm' | 'speedKmh' | 'inclinePct';
+
 export interface WorkoutSet {
   id: string;
   type: SetType;
   weightKg: number;
   reps: number;
   repsMax?: number;
+  seconds?: number;
+  minutes?: number;
+  distanceKm?: number;
+  speedKmh?: number;
+  inclinePct?: number;
 }
 
 export interface RoutineExercise {
@@ -27,6 +36,8 @@ export interface RoutineExercise {
   sets: WorkoutSet[];
   notes?: string;
   repMode?: 'fixed' | 'range';
+  kind?: ExerciseKind;
+  cardioFields?: CardioField[];
 }
 
 export interface Routine {
