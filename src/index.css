@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 @theme {
-  /* ===== SURFACES: your 4 colors. 950 is the lightest layer, 700 the deepest ===== */
+  /* ===== SURFACES: 950 is the lightest layer, 700 the deepest ===== */
   --color-slate-950: #f3eee6; /* page background (beige), and the text on accent buttons */
   --color-slate-900: #ffefe8; /* cards, panels, search and filter fields */
   --color-slate-800: #cdbed6; /* inputs, small buttons, badges, card outlines */
