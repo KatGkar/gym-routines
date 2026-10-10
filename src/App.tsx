@@ -189,7 +189,13 @@ function AppInner() {
         />
       ) : (
         <>
-          <h1 className="mb-4 text-center text-4xl font-bold tracking-tight">My routines</h1>
+        <div className="mb-4 flex justify-center">
+            <img
+              src={import.meta.env.BASE_URL + 'logo.png'}
+              alt="Routines"
+              className="w-72 max-w-full"
+            />
+          </div>
           <div className="mb-6 flex flex-wrap justify-end gap-2">
             <button
               onClick={() => setView('history')}
