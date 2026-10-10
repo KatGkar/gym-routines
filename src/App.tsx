@@ -296,7 +296,7 @@ function AppInner() {
               New routine
             </button>
                         <p className="mx-auto mt-2 max-w-md text-center text-[11px] leading-tight text-slate-500">
-              {' · '}Exercises:{' '}
+              {' '}Exercises:{' '}
               <a
                 href="https://github.com/yuhonas/free-exercise-db"
                 target="_blank"
