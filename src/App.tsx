@@ -191,7 +191,7 @@ function AppInner() {
         <>
         <div className="mb-4 flex justify-center">
             <img
-              src={import.meta.env.BASE_URL + 'logo.png'}
+            src={import.meta.env.BASE_URL + 'logo.svg'}
               alt="Routines"
               className="w-72 max-w-full"
             />
