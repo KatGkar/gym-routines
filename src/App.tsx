@@ -296,26 +296,6 @@ function AppInner() {
               New routine
             </button>
                         <p className="mx-auto mt-2 max-w-md text-center text-[11px] leading-tight text-slate-500">
-              Icons made by{' '}
-              <a
-                href="https://www.magnific.com"
-                title="Magnific"
-                target="_blank"
-                rel="noreferrer"
-                className="underline"
-              >
-                Magnific
-              </a>{' '}
-              from{' '}
-              <a
-                href="https://www.flaticon.com/"
-                title="Flaticon"
-                target="_blank"
-                rel="noreferrer"
-                className="underline"
-              >
-                www.flaticon.com
-              </a>
               {' · '}Exercises:{' '}
               <a
                 href="https://github.com/yuhonas/free-exercise-db"
