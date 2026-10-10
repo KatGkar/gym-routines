@@ -1,29 +1,31 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
 @theme {
-  /* ===== SURFACES: 950 is the lightest layer, 700 the deepest ===== */
-  --color-slate-950: #f3eee6; /* page background (beige), and the text on accent buttons */
-  --color-slate-900: #ffefe8; /* cards, panels, search and filter fields */
-  --color-slate-800: #cdbed6; /* inputs, small buttons, badges, card outlines */
-  --color-slate-700: #cdbbd6; /* dashed boxes, pressed states */
+  /* ===== SURFACES. 950 is the lightest layer ===== */
+  --color-slate-950: #FFF6F0; /* BASE: page background, and the text on accent buttons */
+  --color-slate-900: #fff6ec; /* cards, panels, search and filter fields (lighter cream) */
+  --color-slate-800: #D6B49A; /* MEDIUM: inputs, small buttons, badges, outlines */
+  --color-slate-700: #bf8e7a; /* MEDIUM: dashed boxes, pressed states */
 
-  /* ===== TEXT AND ICONS: dark aubergine tones (not surfaces) ===== */
-  --color-slate-600: #9a82ad; /* faint icons */
-  --color-slate-500: #6f5c7d; /* secondary text, labels */
-  --color-slate-400: #5c4b69; /* subtitles */
-  --color-slate-300: #483a54; /* button text */
-  --color-slate-200: #352a3f; /* set numbers */
-  --color-slate-100: #1f1727; /* main text */
-  --color-white: #1f1727; /* text that was white on dark */
+  /* ===== TEXT AND ICONS: dark browns made from your darker color ===== */
+  --color-slate-600: #92654d; /* DARKER: faint icons */
+  --color-slate-500: #7a5239; /* secondary text, labels */
+  --color-slate-400: #664330; /* subtitles */
+  --color-slate-300: #523525; /* button text */
+  --color-slate-200: #3f281b; /* set numbers */
+  --color-slate-100: #2b1a10; /* main text */
+  --color-white: #2b1a10;     /* text that was white on dark */
 
-  /* ===== ACCENT: deep purple-magenta ===== */
-  --color-emerald-500: #600081; /* buttons, outlines, progress bars */
-  --color-emerald-400: #600081; /* accent text and pressed buttons */
+  /* ===== ACCENT ===== */
+  --color-emerald-500: #92654d; /* DARKER: buttons, outlines, progress bars */
+  --color-emerald-400: #7a4f38; /* accent text and pressed buttons (a bit deeper) */
 
-  /* fixed colors, tuned for light backgrounds */
-  --color-sky-400: #0f766e; /* secondary muscles */
-  --color-amber-400: #b45309; /* warmup sets */
-  --color-red-400: #dc2626; /* delete hover */
+  /* fixed colors, tuned for this palette */
+  --color-sky-400: #3d6b73;   /* secondary muscles (text) */
+  --color-sky-500: #3d6b73;   /* secondary muscles (badge tint) */
+  --color-amber-400: #a16207; /* warmup sets (text) */
+  --color-amber-500: #ca8a04; /* warmup sets (badge tint) */
+  --color-red-400: #b91c1c;   /* delete hover */
 }
 
 :root {
@@ -34,11 +36,8 @@ html,
 body {
   margin: 0;
   min-height: 100%;
-  background: #f3eee6; /* must be the same as slate-950 */
-  color: #1f1727; /* must be the same as slate-100 */
-  font-family:
-    system-ui,
-    -apple-system,
-    sans-serif;
+  background: #FFF6F0; /* must be the same as slate-950 */
+  color: #2b1a10;      /* must be the same as slate-100 */
+  font-family: system-ui, -apple-system, sans-serif;
   -webkit-tap-highlight-color: transparent;
 }
