@@ -151,24 +151,24 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
       ),
     }));
 
-  const addSet = (reId: string, type: SetType) =>
+    const addSet = (reId: string, type: SetType) =>
     updateExercise(reId, (re) => {
       const k = re.kind ?? 'strength';
       const usesReps = k === 'strength' || k === 'bodyweight';
-      return {
-        ...re,
-        sets: [
-          ...re.sets,
-          {
+      // copy the values of the previous set (of the same type if there is one)
+      const prev =
+        [...re.sets].reverse().find((s) => s.type === type) ?? re.sets[re.sets.length - 1];
+      const fresh: WorkoutSet = prev
+        ? { ...prev, id: uid(), type, done: undefined }
+        : {
             id: uid(),
             type,
             weightKg: 0,
             reps: usesReps ? 10 : 0,
             ...(k === 'timed' ? { seconds: 30 } : {}),
             ...(usesReps && re.repMode === 'range' ? { repsMax: 12 } : {}),
-          },
-        ],
-      };
+          };
+      return { ...re, sets: [...re.sets, fresh] };
     });
 
   const updateSet = (reId: string, setId: string, patch: Partial<WorkoutSet>) =>
