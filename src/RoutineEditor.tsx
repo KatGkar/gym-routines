@@ -97,8 +97,10 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
     setPicking(false);
   };
 
-  const removeExercise = (id: string) =>
+  const removeExercise = (id: string, name: string) => {
+    if (!confirm(`Remove "${name}" from this routine?`)) return;
     onChange({ ...routine, exercises: routine.exercises.filter((re) => re.id !== id) });
+  };
 
   const moveExercise = (index: number, dir: -1 | 1) => {
     const target = index + dir;
@@ -236,7 +238,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                     ↓
                   </button>
                   <button
-                    onClick={() => removeExercise(re.id)}
+                    onClick={() => removeExercise(re.id, ex?.name ?? 'Unknown exercise')}
                     aria-label="Remove exercise"
                     className="px-2 py-1 text-slate-500 active:text-red-400"
                   >
