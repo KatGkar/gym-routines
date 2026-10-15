@@ -3,7 +3,16 @@ import ExercisePicker from './ExercisePicker';
 import ImageViewer from './ImageViewer';
 import NumInput from './NumInput';
 import { imageUrl } from './exercises';
-import { useExercises } from './ExercisesContext';
+import {
+  CARDIO_ORDER,
+  DEFAULT_CARDIO,
+  blankSet,
+  getCols,
+  gridTemplate,
+  isRange,
+  setLabels,
+} from './columns';
+import { useExercises } from './useExercises';
 import { uid } from './utils';
 import { PencilIcon } from './icons';
 
@@ -23,31 +32,15 @@ interface Props {
   onBack: () => void;
 }
 
-type NumKey = 'weightKg' | 'seconds' | 'minutes' | 'distanceKm' | 'speedKmh' | 'inclinePct';
-interface ColDef {
-  key: NumKey | 'reps';
-  label: string;
-  step: string;
-}
-
-const COLS: Record<NumKey, ColDef> = {
-  weightKg: { key: 'weightKg', label: 'kg', step: '0.5' },
-  seconds: { key: 'seconds', label: 'Sec', step: '5' },
-  minutes: { key: 'minutes', label: 'Min', step: '1' },
-  distanceKm: { key: 'distanceKm', label: 'km', step: '0.1' },
-  speedKmh: { key: 'speedKmh', label: 'km/h', step: '0.1' },
-  inclinePct: { key: 'inclinePct', label: 'Incl. %', step: '0.5' },
+// Chip labels for the cardio fields, in the same order as CARDIO_ORDER
+const CHIP_LABELS: Record<CardioField, string> = {
+  weightKg: 'Weight',
+  minutes: 'Time',
+  distanceKm: 'Distance',
+  speedKmh: 'Speed',
+  inclinePct: 'Incline',
 };
-const REPS_COL: ColDef = { key: 'reps', label: 'Reps', step: '1' };
-
-const CARDIO_CHIPS: { key: CardioField; chip: string }[] = [
-  { key: 'weightKg', chip: 'Weight' },
-  { key: 'minutes', chip: 'Time' },
-  { key: 'distanceKm', chip: 'Distance' },
-  { key: 'speedKmh', chip: 'Speed' },
-  { key: 'inclinePct', chip: 'Incline' },
-];
-const DEFAULT_CARDIO: CardioField[] = ['minutes', 'distanceKm'];
+const CARDIO_CHIPS = CARDIO_ORDER.map((key) => ({ key, chip: CHIP_LABELS[key] }));
 
 const KIND_LABELS: Record<ExerciseKind, string> = {
   strength: 'Weight & reps',
@@ -62,12 +55,6 @@ const defaultKind = (e: Exercise): ExerciseKind => {
   if (e.category === 'stretching') return 'timed';
   if (e.category === 'plyometrics') return 'bodyweight';
   return 'strength';
-};
-
-// "W" for warmup sets, 1, 2, 3... for normal sets
-const labels = (sets: WorkoutSet[]) => {
-  let n = 0;
-  return sets.map((s) => (s.type === 'warmup' ? 'W' : String(++n)));
 };
 
 const inputClass =
@@ -128,7 +115,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
     updateExercise(reId, (re) => {
       const cur = re.cardioFields ?? DEFAULT_CARDIO;
       if (cur.includes(field) && cur.length === 1) return re; // keep at least one
-      const next = CARDIO_CHIPS.map((c) => c.key).filter((k) =>
+      const next = CARDIO_ORDER.filter((k) =>
         k === field ? !cur.includes(field) : cur.includes(k),
       );
       return { ...re, cardioFields: next };
@@ -145,23 +132,14 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
       ),
     }));
 
-    const addSet = (reId: string, type: SetType) =>
+  const addSet = (reId: string, type: SetType) =>
     updateExercise(reId, (re) => {
-      const k = re.kind ?? 'strength';
-      const usesReps = k === 'strength' || k === 'bodyweight';
       // copy the values of the previous set (of the same type if there is one)
       const prev =
         [...re.sets].reverse().find((s) => s.type === type) ?? re.sets[re.sets.length - 1];
       const fresh: WorkoutSet = prev
         ? { ...prev, id: uid(), type, done: undefined }
-        : {
-            id: uid(),
-            type,
-            weightKg: 0,
-            reps: usesReps ? 10 : 0,
-            ...(k === 'timed' ? { seconds: 30 } : {}),
-            ...(usesReps && re.repMode === 'range' ? { repsMax: 12 } : {}),
-          };
+        : blankSet(re, type);
       return { ...re, sets: [...re.sets, fresh] };
     });
 
@@ -204,28 +182,12 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
       <div className="space-y-4">
         {routine.exercises.map((re, index) => {
           const ex = byId.get(re.exerciseId);
-          const setLabels = labels(re.sets);
+          const labels = setLabels(re.sets);
           const kind: ExerciseKind = re.kind ?? 'strength';
-          const usesReps = kind === 'strength' || kind === 'bodyweight';
-          const range = usesReps && re.repMode === 'range';
+          const range = isRange(re);
           const cardioKeys = re.cardioFields ?? DEFAULT_CARDIO;
-
-          const cols: ColDef[] =
-            kind === 'strength'
-              ? [COLS.weightKg, REPS_COL]
-              : kind === 'bodyweight'
-                ? [REPS_COL]
-                : kind === 'timed'
-                  ? [COLS.seconds]
-                  : CARDIO_CHIPS.map((c) => c.key)
-                      .filter((k) => cardioKeys.includes(k))
-                      .map((k) => COLS[k]);
-
-          const gridStyle = {
-            gridTemplateColumns: `2.5rem ${cols
-              .map((c) => (c.key === 'reps' && range ? 'minmax(0,1.6fr)' : 'minmax(0,1fr)'))
-              .join(' ')} 2rem`,
-          };
+          const cols = getCols(re);
+          const gridStyle = { gridTemplateColumns: gridTemplate(re, '2rem') };
 
           return (
             <section key={re.id} className="rounded-2xl bg-slate-900 p-4 ring-1 ring-slate-800">
@@ -238,6 +200,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                   >
                     <img
                       src={imageUrl(ex.images[0])}
+                      crossOrigin="anonymous"
                       alt=""
                       loading="lazy"
                       className="h-14 w-14 rounded-lg bg-slate-800 object-cover"
@@ -372,7 +335,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                           : 'bg-slate-800 text-slate-200')
                       }
                     >
-                      {setLabels[i]}
+                      {labels[i]}
                     </button>
 
                     {cols.map((c) => {

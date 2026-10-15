@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { sanitizeNum } from './numText';
 
 interface Props {
   value: number | undefined;
@@ -34,10 +35,7 @@ export default function NumInput({
       placeholder={placeholder}
       value={text}
       onChange={(e) => {
-        let raw = e.target.value.replace(',', '.');
-        raw = decimal ? raw.replace(/[^0-9.]/g, '') : raw.replace(/[^0-9]/g, '');
-        const parts = raw.split('.');
-        if (parts.length > 2) raw = parts[0] + '.' + parts.slice(1).join('');
+        const raw = sanitizeNum(e.target.value, decimal);
         setText(raw);
         onChange(Number(raw) || 0);
       }}

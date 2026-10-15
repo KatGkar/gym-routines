@@ -4,11 +4,12 @@ import RoutineEditor from './RoutineEditor';
 import WorkoutScreen from './WorkoutScreen';
 import type { FinishMode } from './WorkoutScreen';
 import HistoryScreen from './HistoryScreen';
-import { ExercisesProvider, useExercises } from './ExercisesContext';
+import { ExercisesProvider } from './ExercisesContext';
+import { useExercises } from './useExercises';
 import { useRoutines } from './useRoutines';
 import { useLocalState } from './useLocalState';
 import { exportBackup, parseBackup } from './backup';
-import { elapsedMs } from './session';
+import { applySessionToRoutine, createSession, elapsedMs } from './session';
 import { uid } from './utils';
 import type { FinishedWorkout, Routine, WorkoutSession } from './types';
 import { CopyIcon, PlayIcon, TrashIcon } from './icons';
@@ -67,19 +68,7 @@ function AppInner() {
     if (session && !confirm('A workout is already in progress. Discard it and start this one?')) {
       return;
     }
-    const now = Date.now();
-    setSession({
-      id: uid(),
-      routineId: r.id,
-      routineName: r.name || 'Untitled routine',
-      startedAt: now,
-      accumulatedMs: 0,
-      resumedAt: now,
-      exercises: r.exercises.map((re) => ({
-        ...re,
-        sets: re.sets.map((s) => ({ ...s, id: uid(), done: false })),
-      })),
-    });
+    setSession(createSession(r));
     setView('workout');
   };
 
@@ -101,18 +90,7 @@ function AppInner() {
 
       if (mode === 'update') {
         setRoutines((rs) =>
-          rs.map((r) => {
-            if (r.id !== session.routineId) return r;
-            const fromSession = session.exercises.flatMap((used) => {
-              const re = r.exercises.find((x) => x.id === used.id);
-              return re
-                ? [{ ...re, sets: used.sets.map((s) => ({ ...s, done: undefined })) }]
-                : [];
-            });
-            const sessionIds = new Set(session.exercises.map((x) => x.id));
-            const rest = r.exercises.filter((x) => !sessionIds.has(x.id));
-            return { ...r, exercises: [...fromSession, ...rest] };
-          }),
+          rs.map((r) => (r.id === session.routineId ? applySessionToRoutine(r, session) : r)),
         );
       }
     }
@@ -127,16 +105,11 @@ function AppInner() {
     try {
       const data = parseBackup(await file.text());
       const haveRoutines = new Set(routines.map((r) => r.id));
-      const newRoutines = data.routines.filter(
-        (r) =>
-          r && typeof r.id === 'string' && Array.isArray(r.exercises) && !haveRoutines.has(r.id),
-      );
+      const newRoutines = data.routines.filter((r) => !haveRoutines.has(r.id));
       const haveCustom = new Set(custom.map((c) => c.id));
-      const newCustom = data.customExercises.filter((c) => c && !haveCustom.has(c.id));
+      const newCustom = data.customExercises.filter((c) => !haveCustom.has(c.id));
       const haveHistory = new Set(history.map((h) => h.id));
-      const newHistory = data.history.filter(
-        (h) => h && typeof h.id === 'string' && !haveHistory.has(h.id),
-      );
+      const newHistory = data.history.filter((h) => !haveHistory.has(h.id));
 
       setRoutines((rs) => [...rs, ...newRoutines]);
       if (newCustom.length) setCustom([...custom, ...newCustom]);
@@ -188,9 +161,9 @@ function AppInner() {
         />
       ) : (
         <>
-        <div className="mb-4 flex justify-center">
+          <div className="mb-4 flex justify-center">
             <img
-            src={import.meta.env.BASE_URL + 'logo.svg'}
+              src={import.meta.env.BASE_URL + 'logo.svg'}
               alt="Routines"
               className="w-72 max-w-full"
             />
@@ -294,7 +267,7 @@ function AppInner() {
             >
               New routine
             </button>
-                        <p className="mx-auto mt-2 max-w-md text-center text-[11px] leading-tight text-slate-500">
+            <p className="mx-auto mt-2 max-w-md text-center text-[11px] leading-tight text-slate-500">
               {' '}Exercises:{' '}
               <a
                 href="https://github.com/yuhonas/free-exercise-db"

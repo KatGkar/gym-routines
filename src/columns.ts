@@ -1,21 +1,21 @@
-import type { CardioField, RoutineExercise, WorkoutSet } from './types';
+import type { CardioField, RoutineExercise, SetType, WorkoutSet } from './types';
+import { uid } from './utils';
 
 export type NumKey = 'weightKg' | 'seconds' | 'minutes' | 'distanceKm' | 'speedKmh' | 'inclinePct';
 export interface ColDef {
   key: NumKey | 'reps';
   label: string;
-  step: string;
 }
 
 export const COLS: Record<NumKey, ColDef> = {
-  weightKg: { key: 'weightKg', label: 'kg', step: '0.5' },
-  seconds: { key: 'seconds', label: 'Sec', step: '5' },
-  minutes: { key: 'minutes', label: 'Min', step: '1' },
-  distanceKm: { key: 'distanceKm', label: 'km', step: '0.1' },
-  speedKmh: { key: 'speedKmh', label: 'km/h', step: '0.1' },
-  inclinePct: { key: 'inclinePct', label: 'Incl. %', step: '0.5' },
+  weightKg: { key: 'weightKg', label: 'kg' },
+  seconds: { key: 'seconds', label: 'Sec' },
+  minutes: { key: 'minutes', label: 'Min' },
+  distanceKm: { key: 'distanceKm', label: 'km' },
+  speedKmh: { key: 'speedKmh', label: 'km/h' },
+  inclinePct: { key: 'inclinePct', label: 'Incl. %' },
 };
-export const REPS_COL: ColDef = { key: 'reps', label: 'Reps', step: '1' };
+export const REPS_COL: ColDef = { key: 'reps', label: 'Reps' };
 
 export const CARDIO_ORDER: CardioField[] = [
   'weightKg',
@@ -60,4 +60,23 @@ export function formatSet(re: RoutineExercise, s: WorkoutSet): string {
       return `${s[c.key] ?? 0} ${c.label}`;
     })
     .join(' · ');
+}
+
+// "W" for warmup sets, 1, 2, 3... for normal sets
+export function setLabels(sets: WorkoutSet[]): string[] {
+  let n = 0;
+  return sets.map((s) => (s.type === 'warmup' ? 'W' : String(++n)));
+}
+
+// A new empty set with sensible starting values for this kind of exercise
+export function blankSet(re: RoutineExercise, type: SetType): WorkoutSet {
+  const reps = usesReps(re);
+  return {
+    id: uid(),
+    type,
+    weightKg: 0,
+    reps: reps ? 10 : 0,
+    ...(re.kind === 'timed' ? { seconds: 30 } : {}),
+    ...(isRange(re) ? { repsMax: 12 } : {}),
+  };
 }

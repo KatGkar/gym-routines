@@ -38,6 +38,7 @@ export default function ImageViewer({ exercise, onClose }: Props) {
             <img
               key={p}
               src={imageUrl(p)}
+              crossOrigin="anonymous"
               alt={`${exercise.name}, photo ${i + 1}`}
               className="w-full rounded-xl bg-slate-800"
             />

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { imageUrl } from './exercises';
-import { useExercises } from './ExercisesContext';
-import { getCols, gridTemplate, isRange, usesReps } from './columns';
+import { useExercises } from './useExercises';
+import { blankSet, getCols, gridTemplate, isRange, setLabels } from './columns';
 import NumInput from './NumInput';
 import { elapsedMs, formatDuration } from './session';
 import { uid } from './utils';
@@ -19,28 +19,9 @@ interface Props {
 const inputClass =
   'w-full min-w-0 rounded-lg bg-slate-800 px-2 py-2 text-center text-base text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500';
 
-const newSet = (re: RoutineExercise): WorkoutSet => {
-  const kind = re.kind ?? 'strength';
-  const reps = usesReps(re);
-  return {
-    id: uid(),
-    type: 'normal',
-    weightKg: 0,
-    reps: reps ? 10 : 0,
-    ...(kind === 'timed' ? { seconds: 30 } : {}),
-    ...(reps && re.repMode === 'range' ? { repsMax: 12 } : {}),
-    done: false,
-  };
-};
-
-const labelOf = (sets: WorkoutSet[], i: number) =>
-  sets[i].type === 'warmup'
-    ? 'W'
-    : String(sets.slice(0, i + 1).filter((s) => s.type === 'normal').length);
-
 export default function WorkoutScreen({ session, onChange, onMinimize, onFinish }: Props) {
   const { byId } = useExercises();
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   const [finishing, setFinishing] = useState(false);
 
   useEffect(() => {
@@ -74,7 +55,10 @@ export default function WorkoutScreen({ session, onChange, onMinimize, onFinish 
       const last = re.sets[re.sets.length - 1];
       return {
         ...re,
-        sets: [...re.sets, last ? { ...last, id: uid(), done: false } : newSet(re)],
+        sets: [
+          ...re.sets,
+          last ? { ...last, id: uid(), done: false } : { ...blankSet(re, 'normal'), done: false },
+        ],
       };
     });
 
@@ -146,6 +130,7 @@ export default function WorkoutScreen({ session, onChange, onMinimize, onFinish 
           const cols = getCols(re);
           const range = isRange(re);
           const template = gridTemplate(re, '2.75rem');
+          const labels = setLabels(re.sets);
           const allDone = re.sets.length > 0 && re.sets.every((s) => s.done);
 
           return (
@@ -154,6 +139,7 @@ export default function WorkoutScreen({ session, onChange, onMinimize, onFinish 
                 {ex?.images[0] && (
                   <img
                     src={imageUrl(ex.images[0])}
+                    crossOrigin="anonymous"
                     alt=""
                     loading="lazy"
                     className="h-12 w-12 shrink-0 rounded-lg bg-slate-800 object-cover"
@@ -206,7 +192,7 @@ export default function WorkoutScreen({ session, onChange, onMinimize, onFinish 
                           : 'bg-slate-800 text-slate-200')
                       }
                     >
-                      {labelOf(re.sets, i)}
+                      {labels[i]}
                     </div>
 
                     {cols.map((c) => {
