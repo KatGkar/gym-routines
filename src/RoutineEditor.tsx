@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import type { KeyboardEvent } from 'react';
 import ExercisePicker from './ExercisePicker';
 import ImageViewer from './ImageViewer';
+import NumInput from './NumInput';
 import { imageUrl } from './exercises';
 import { useExercises } from './ExercisesContext';
 import { uid } from './utils';
@@ -68,12 +68,6 @@ const defaultKind = (e: Exercise): ExerciseKind => {
 const labels = (sets: WorkoutSet[]) => {
   let n = 0;
   return sets.map((s) => (s.type === 'warmup' ? 'W' : String(++n)));
-};
-
-// Never allow negative or invalid numbers
-const num = (v: string) => Math.max(0, Number(v) || 0);
-const blockMinus = (e: KeyboardEvent<HTMLInputElement>) => {
-  if (['-', '+', 'e', 'E'].includes(e.key)) e.preventDefault();
 };
 
 const inputClass =
@@ -385,71 +379,51 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                       if (c.key !== 'reps') {
                         const key = c.key;
                         return (
-                          <input
+                          <NumInput
                             key={key}
-                            type="number"
-                            inputMode="decimal"
-                            step={c.step}
-                            placeholder="0"
-                            value={s[key] || ''}
-                            onChange={(e) =>
-                              updateSet(re.id, s.id, {
-                                [key]: num(e.target.value),
-                              } as Partial<WorkoutSet>)
+                            value={s[key]}
+                            decimal={key !== 'seconds'}
+                            onChange={(v) =>
+                              updateSet(re.id, s.id, { [key]: v } as Partial<WorkoutSet>)
                             }
-                            min={0}
-                            onKeyDown={blockMinus}
                             className={inputClass + ' min-w-0'}
                           />
                         );
                       }
                       return range ? (
                         <div key="reps" className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            inputMode="numeric"
+                          <NumInput
+                            value={s.reps}
+                            decimal={false}
                             placeholder="8"
-                            value={s.reps || ''}
-                            onChange={(e) => {
-                              const v = num(e.target.value);
+                            onChange={(v) =>
                               updateSet(re.id, s.id, {
                                 reps: v,
                                 ...(s.repsMax !== undefined && v > s.repsMax ? { repsMax: v } : {}),
-                              });
-                            }}
-                            min={0}
-                            onKeyDown={blockMinus}
+                              })
+                            }
                             className={inputClass + ' min-w-0'}
                           />
                           <span className="text-slate-500">–</span>
-                          <input
-                            type="number"
-                            inputMode="numeric"
+                          <NumInput
+                            value={s.repsMax}
+                            decimal={false}
                             placeholder="12"
-                            value={s.repsMax || ''}
-                            onChange={(e) =>
-                              updateSet(re.id, s.id, { repsMax: num(e.target.value) })
-                            }
+                            onChange={(v) => updateSet(re.id, s.id, { repsMax: v })}
                             onBlur={() => {
                               if (s.repsMax !== undefined && s.repsMax > 0 && s.repsMax < s.reps) {
                                 updateSet(re.id, s.id, { repsMax: s.reps });
                               }
                             }}
-                            min={0}
-                            onKeyDown={blockMinus}
                             className={inputClass + ' min-w-0'}
                           />
                         </div>
                       ) : (
-                        <input
+                        <NumInput
                           key="reps"
-                          type="number"
-                          inputMode="numeric"
-                          placeholder="0"
-                          value={s.reps || ''}
-                          onChange={(e) => updateSet(re.id, s.id, { reps: num(e.target.value) })}
-                          min={0}
-                          onKeyDown={blockMinus}
+                          value={s.reps}
+                          decimal={false}
+                          onChange={(v) => updateSet(re.id, s.id, { reps: v })}
                           className={inputClass + ' min-w-0'}
                         />
                       );

@@ -101,19 +101,18 @@ function AppInner() {
 
       if (mode === 'update') {
         setRoutines((rs) =>
-          rs.map((r) =>
-            r.id !== session.routineId
-              ? r
-              : {
-                  ...r,
-                  exercises: r.exercises.map((re) => {
-                    const used = session.exercises.find((x) => x.id === re.id);
-                    return used
-                      ? { ...re, sets: used.sets.map((s) => ({ ...s, done: undefined })) }
-                      : re;
-                  }),
-                },
-          ),
+          rs.map((r) => {
+            if (r.id !== session.routineId) return r;
+            const fromSession = session.exercises.flatMap((used) => {
+              const re = r.exercises.find((x) => x.id === used.id);
+              return re
+                ? [{ ...re, sets: used.sets.map((s) => ({ ...s, done: undefined })) }]
+                : [];
+            });
+            const sessionIds = new Set(session.exercises.map((x) => x.id));
+            const rest = r.exercises.filter((x) => !sessionIds.has(x.id));
+            return { ...r, exercises: [...fromSession, ...rest] };
+          }),
         );
       }
     }

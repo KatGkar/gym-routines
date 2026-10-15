@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { imageUrl } from './exercises';
 import { useExercises } from './ExercisesContext';
-import { blockMinus, getCols, gridTemplate, isRange, num, usesReps } from './columns';
+import { getCols, gridTemplate, isRange, usesReps } from './columns';
+import NumInput from './NumInput';
 import { elapsedMs, formatDuration } from './session';
 import { uid } from './utils';
 import type { RoutineExercise, WorkoutSession, WorkoutSet } from './types';
@@ -80,6 +81,20 @@ export default function WorkoutScreen({ session, onChange, onMinimize, onFinish 
   const removeLastSet = (reId: string) =>
     updateExercise(reId, (re) => ({ ...re, sets: re.sets.slice(0, -1) }));
 
+  const toggleAll = (reId: string) =>
+    updateExercise(reId, (re) => {
+      const allDone = re.sets.length > 0 && re.sets.every((s) => s.done);
+      return { ...re, sets: re.sets.map((s) => ({ ...s, done: !allDone })) };
+    });
+
+  const moveExercise = (index: number, dir: -1 | 1) => {
+    const target = index + dir;
+    if (target < 0 || target >= session.exercises.length) return;
+    const list = [...session.exercises];
+    [list[index], list[target]] = [list[target], list[index]];
+    onChange({ ...session, exercises: list });
+  };
+
   return (
     <div>
       <div className="sticky top-0 z-10 -mx-4 bg-slate-950/95 px-4 pb-3 pt-1 backdrop-blur">
@@ -126,7 +141,7 @@ export default function WorkoutScreen({ session, onChange, onMinimize, onFinish 
       </div>
 
       <div className="mt-2 space-y-4 pb-24">
-        {session.exercises.map((re) => {
+        {session.exercises.map((re, index) => {
           const ex = byId.get(re.exerciseId);
           const cols = getCols(re);
           const range = isRange(re);
@@ -147,10 +162,20 @@ export default function WorkoutScreen({ session, onChange, onMinimize, onFinish 
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold text-emerald-400">
                     {ex?.name ?? 'Unknown exercise'}
-                    {allDone && <span className="ml-2 text-xs text-slate-400">✓ done</span>}
                   </div>
                   {re.notes && <div className="text-xs text-slate-400">{re.notes}</div>}
                 </div>
+                <button
+                  onClick={() => toggleAll(re.id)}
+                  disabled={re.sets.length === 0}
+                  aria-label={allDone ? 'Mark all sets not done' : 'Mark all sets done'}
+                  className={
+                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg font-bold disabled:opacity-30 ' +
+                    (allDone ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-600')
+                  }
+                >
+                  ✓
+                </button>
               </div>
 
               {re.sets.length > 0 && (
@@ -188,19 +213,12 @@ export default function WorkoutScreen({ session, onChange, onMinimize, onFinish 
                       if (c.key !== 'reps') {
                         const key = c.key;
                         return (
-                          <input
+                          <NumInput
                             key={key}
-                            type="number"
-                            inputMode="decimal"
-                            step={c.step}
-                            min={0}
-                            placeholder="0"
-                            value={s[key] || ''}
-                            onKeyDown={blockMinus}
-                            onChange={(e) =>
-                              patchSet(re.id, s.id, {
-                                [key]: num(e.target.value),
-                              } as Partial<WorkoutSet>)
+                            value={s[key]}
+                            decimal={key !== 'seconds'}
+                            onChange={(v) =>
+                              patchSet(re.id, s.id, { [key]: v } as Partial<WorkoutSet>)
                             }
                             className={inputClass}
                           />
@@ -208,33 +226,24 @@ export default function WorkoutScreen({ session, onChange, onMinimize, onFinish 
                       }
                       return range ? (
                         <div key="reps" className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            inputMode="numeric"
-                            min={0}
+                          <NumInput
+                            value={s.reps}
+                            decimal={false}
                             placeholder="8"
-                            value={s.reps || ''}
-                            onKeyDown={blockMinus}
-                            onChange={(e) => {
-                              const v = num(e.target.value);
+                            onChange={(v) =>
                               patchSet(re.id, s.id, {
                                 reps: v,
                                 ...(s.repsMax !== undefined && v > s.repsMax ? { repsMax: v } : {}),
-                              });
-                            }}
+                              })
+                            }
                             className={inputClass}
                           />
                           <span className="text-slate-500">–</span>
-                          <input
-                            type="number"
-                            inputMode="numeric"
-                            min={0}
+                          <NumInput
+                            value={s.repsMax}
+                            decimal={false}
                             placeholder="12"
-                            value={s.repsMax || ''}
-                            onKeyDown={blockMinus}
-                            onChange={(e) =>
-                              patchSet(re.id, s.id, { repsMax: num(e.target.value) })
-                            }
+                            onChange={(v) => patchSet(re.id, s.id, { repsMax: v })}
                             onBlur={() => {
                               if (s.repsMax !== undefined && s.repsMax > 0 && s.repsMax < s.reps) {
                                 patchSet(re.id, s.id, { repsMax: s.reps });
@@ -244,15 +253,11 @@ export default function WorkoutScreen({ session, onChange, onMinimize, onFinish 
                           />
                         </div>
                       ) : (
-                        <input
+                        <NumInput
                           key="reps"
-                          type="number"
-                          inputMode="numeric"
-                          min={0}
-                          placeholder="0"
-                          value={s.reps || ''}
-                          onKeyDown={blockMinus}
-                          onChange={(e) => patchSet(re.id, s.id, { reps: num(e.target.value) })}
+                          value={s.reps}
+                          decimal={false}
+                          onChange={(v) => patchSet(re.id, s.id, { reps: v })}
                           className={inputClass}
                         />
                       );
@@ -287,6 +292,22 @@ export default function WorkoutScreen({ session, onChange, onMinimize, onFinish 
                     − Last set
                   </button>
                 )}
+                <button
+                  onClick={() => moveExercise(index, -1)}
+                  disabled={index === 0}
+                  aria-label="Move exercise up"
+                  className="rounded-lg bg-slate-800 px-4 py-2 text-sm text-slate-300 active:bg-slate-700 disabled:opacity-30"
+                >
+                  ↑
+                </button>
+                <button
+                  onClick={() => moveExercise(index, 1)}
+                  disabled={index === session.exercises.length - 1}
+                  aria-label="Move exercise down"
+                  className="rounded-lg bg-slate-800 px-4 py-2 text-sm text-slate-300 active:bg-slate-700 disabled:opacity-30"
+                >
+                  ↓
+                </button>
               </div>
             </section>
           );

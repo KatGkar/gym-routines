@@ -1,4 +1,3 @@
-import type { KeyboardEvent } from 'react';
 import type { CardioField, RoutineExercise, WorkoutSet } from './types';
 
 export type NumKey = 'weightKg' | 'seconds' | 'minutes' | 'distanceKm' | 'speedKmh' | 'inclinePct';
@@ -49,12 +48,6 @@ export function gridTemplate(re: RoutineExercise, lastCol: string): string {
     .join(' ');
   return `2.5rem ${mid} ${lastCol}`;
 }
-
-// Never allow negative or invalid numbers
-export const num = (v: string) => Math.max(0, Number(v) || 0);
-export const blockMinus = (e: KeyboardEvent<HTMLInputElement>) => {
-  if (['-', '+', 'e', 'E'].includes(e.key)) e.preventDefault();
-};
 
 // Text summary of one set, used in the history
 export function formatSet(re: RoutineExercise, s: WorkoutSet): string {
