@@ -252,11 +252,11 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                 onChange={(e) => updateExercise(re.id, (x) => ({ ...x, notes: e.target.value }))}
                 placeholder="Notes (e.g. seat position 4)"
                 rows={2}
-                className="mb-3 w-full resize-none rounded-lg bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="mb-3 w-full resize-none rounded-lg bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
 
               <div className="mb-3">
-                <label className="relative inline-flex items-center gap-1 text-xs uppercase text-slate-500">
+                <label className="relative inline-flex items-center gap-1 text-xs text-slate-500 uppercase">
                   <span>{KIND_LABELS[kind]}</span>
                   <Chevron />
                   <select
@@ -294,7 +294,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
 
               {re.sets.length > 0 && (
                 <div
-                  className="mb-1 grid gap-2 px-0.5 text-center text-xs uppercase text-slate-500"
+                  className="mb-1 grid gap-2 px-0.5 text-center text-xs text-slate-500 uppercase"
                   style={gridStyle}
                 >
                   <span>Set</span>

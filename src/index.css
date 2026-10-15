@@ -1,10 +1,10 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
   /* ===== SURFACES. 950 is the lightest layer ===== */
-  --color-slate-950: #FFF6F0; /* BASE: page background, and the text on accent buttons */
+  --color-slate-950: #fff6f0; /* BASE: page background, and the text on accent buttons */
   --color-slate-900: #fff6ec; /* cards, panels, search and filter fields (lighter cream) */
-  --color-slate-800: #D6B49A; /* MEDIUM: inputs, small buttons, badges, outlines */
+  --color-slate-800: #d6b49a; /* MEDIUM: inputs, small buttons, badges, outlines */
   --color-slate-700: #bf8e7a; /* MEDIUM: dashed boxes, pressed states */
 
   /* ===== TEXT AND ICONS: dark browns made from your darker color ===== */
@@ -14,18 +14,18 @@
   --color-slate-300: #523525; /* button text */
   --color-slate-200: #3f281b; /* set numbers */
   --color-slate-100: #2b1a10; /* main text */
-  --color-white: #2b1a10;     /* text that was white on dark */
+  --color-white: #2b1a10; /* text that was white on dark */
 
   /* ===== ACCENT ===== */
   --color-emerald-500: #92654d; /* DARKER: buttons, outlines, progress bars */
   --color-emerald-400: #7a4f38; /* accent text and pressed buttons (a bit deeper) */
 
   /* fixed colors, tuned for this palette */
-  --color-sky-400: #3d6b73;   /* secondary muscles (text) */
-  --color-sky-500: #3d6b73;   /* secondary muscles (badge tint) */
+  --color-sky-400: #3d6b73; /* secondary muscles (text) */
+  --color-sky-500: #3d6b73; /* secondary muscles (badge tint) */
   --color-amber-400: #a16207; /* warmup sets (text) */
   --color-amber-500: #ca8a04; /* warmup sets (badge tint) */
-  --color-red-400: #b91c1c;   /* delete hover */
+  --color-red-400: #b91c1c; /* delete hover */
 }
 
 :root {
@@ -36,8 +36,11 @@ html,
 body {
   margin: 0;
   min-height: 100%;
-  background: #FFF6F0; /* must be the same as slate-950 */
-  color: #2b1a10;      /* must be the same as slate-100 */
-  font-family: system-ui, -apple-system, sans-serif;
+  background: #fff6f0; /* must be the same as slate-950 */
+  color: #2b1a10; /* must be the same as slate-100 */
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
   -webkit-tap-highlight-color: transparent;
 }
