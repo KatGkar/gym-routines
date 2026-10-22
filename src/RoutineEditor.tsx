@@ -210,9 +210,16 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                   </button>
                 )}
                 <div className="min-w-0 flex-1">
-                  <div className="font-semibold text-emerald-400">
-                    {ex?.name ?? 'Unknown exercise'}
-                  </div>
+                  {ex ? (
+                    <button
+                      onClick={() => setViewing(ex)}
+                      className="text-left font-semibold text-emerald-400 active:text-emerald-500"
+                    >
+                      {ex.name}
+                    </button>
+                  ) : (
+                    <div className="font-semibold text-emerald-400">Unknown exercise</div>
+                  )}
                   <div className="flex flex-wrap gap-x-2 text-xs capitalize">
                     <span className="text-slate-300">{ex?.primaryMuscles.join(', ')}</span>
                     {ex && ex.secondaryMuscles.length > 0 && (

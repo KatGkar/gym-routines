@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { imageUrl } from './exercises';
 import { useExercises } from './useExercises';
 import { blankSet, getCols, gridTemplate, isRange, setLabels } from './columns';
+import ImageViewer from './ImageViewer';
 import NumInput from './NumInput';
 import { elapsedMs, formatDuration } from './session';
 import { uid } from './utils';
-import type { RoutineExercise, WorkoutSession, WorkoutSet } from './types';
+import type { Exercise, RoutineExercise, WorkoutSession, WorkoutSet } from './types';
 
 export type FinishMode = 'save' | 'update' | 'discard';
 
@@ -23,6 +24,7 @@ export default function WorkoutScreen({ session, onChange, onMinimize, onFinish 
   const { byId } = useExercises();
   const [now, setNow] = useState(() => Date.now());
   const [finishing, setFinishing] = useState(false);
+  const [viewing, setViewing] = useState<Exercise | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -137,18 +139,31 @@ export default function WorkoutScreen({ session, onChange, onMinimize, onFinish 
             <section key={re.id} className="rounded-2xl bg-slate-900 p-4 ring-1 ring-slate-800">
               <div className="mb-3 flex items-center gap-3">
                 {ex?.images[0] && (
-                  <img
-                    src={imageUrl(ex.images[0])}
-                    crossOrigin="anonymous"
-                    alt=""
-                    loading="lazy"
-                    className="h-12 w-12 shrink-0 rounded-lg bg-slate-800 object-cover"
-                  />
+                  <button
+                    onClick={() => setViewing(ex)}
+                    aria-label="View large photo"
+                    className="shrink-0"
+                  >
+                    <img
+                      src={imageUrl(ex.images[0])}
+                      crossOrigin="anonymous"
+                      alt=""
+                      loading="lazy"
+                      className="h-12 w-12 rounded-lg bg-slate-800 object-cover"
+                    />
+                  </button>
                 )}
                 <div className="min-w-0 flex-1">
-                  <div className="font-semibold text-emerald-400">
-                    {ex?.name ?? 'Unknown exercise'}
-                  </div>
+                  {ex ? (
+                    <button
+                      onClick={() => setViewing(ex)}
+                      className="text-left font-semibold text-emerald-400 active:text-emerald-500"
+                    >
+                      {ex.name}
+                    </button>
+                  ) : (
+                    <div className="font-semibold text-emerald-400">Unknown exercise</div>
+                  )}
                   {re.notes && <div className="text-xs text-slate-400">{re.notes}</div>}
                 </div>
                 <button
@@ -344,6 +359,8 @@ export default function WorkoutScreen({ session, onChange, onMinimize, onFinish 
           </div>
         </div>
       )}
+
+      {viewing && <ImageViewer exercise={viewing} onClose={() => setViewing(null)} />}
     </div>
   );
 }
