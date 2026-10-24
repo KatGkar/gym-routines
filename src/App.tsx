@@ -109,7 +109,15 @@ function AppInner() {
                   exercises: r.exercises.map((re) => {
                     const used = session.exercises.find((x) => x.id === re.id);
                     return used
-                      ? { ...re, sets: used.sets.map((s) => ({ ...s, done: undefined })) }
+                      ? {
+                          ...re,
+                          sets: used.sets.map((s) => ({
+                            ...s,
+                            done: undefined,
+                            // AMRAP has no target, so the next workout starts empty again
+                            ...(re.repMode === 'amrap' && s.type === 'normal' ? { reps: 0 } : {}),
+                          })),
+                        }
                       : re;
                   }),
                 },
@@ -159,6 +167,7 @@ function AppInner() {
       <div className="mx-auto min-h-screen max-w-md px-4 pt-6">
         <WorkoutScreen
           session={session}
+          history={history}
           onChange={setSession}
           onMinimize={() => setView('routines')}
           onFinish={finishWorkout}

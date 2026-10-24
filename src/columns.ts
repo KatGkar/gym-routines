@@ -32,6 +32,7 @@ export const usesReps = (re: RoutineExercise) => {
   return k === 'strength' || k === 'bodyweight';
 };
 export const isRange = (re: RoutineExercise) => usesReps(re) && re.repMode === 'range';
+export const isAmrap = (re: RoutineExercise) => usesReps(re) && re.repMode === 'amrap';
 
 export function getCols(re: RoutineExercise): ColDef[] {
   const kind = re.kind ?? 'strength';
@@ -59,9 +60,11 @@ export const blockMinus = (e: KeyboardEvent<HTMLInputElement>) => {
 // Text summary of one set, used in the history
 export function formatSet(re: RoutineExercise, s: WorkoutSet): string {
   const range = isRange(re);
+  const amrap = isAmrap(re);
   return getCols(re)
     .map((c) => {
       if (c.key === 'reps') {
+        if (amrap) return s.reps ? `${s.reps} reps (AMRAP)` : 'AMRAP';
         return range && s.repsMax ? `${s.reps}–${s.repsMax} reps` : `${s.reps} reps`;
       }
       return `${s[c.key] ?? 0} ${c.label}`;

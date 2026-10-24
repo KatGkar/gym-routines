@@ -6,11 +6,13 @@ import { imageUrl } from './exercises';
 import { useExercises } from './ExercisesContext';
 import { uid } from './utils';
 import { PencilIcon } from './icons';
+import { autoWarmupOn, syncAutoWarmups } from './warmups';
 
 import type {
   CardioField,
   Exercise,
   ExerciseKind,
+  RepMode,
   Routine,
   RoutineExercise,
   SetType,
@@ -48,6 +50,12 @@ const CARDIO_CHIPS: { key: CardioField; chip: string }[] = [
   { key: 'inclinePct', chip: 'Incline' },
 ];
 const DEFAULT_CARDIO: CardioField[] = ['minutes', 'distanceKm'];
+
+const REP_MODE_LABELS: Record<RepMode, string> = {
+  fixed: 'Reps',
+  range: 'Range reps',
+  amrap: 'AMRAP',
+};
 
 const KIND_LABELS: Record<ExerciseKind, string> = {
   strength: 'Weight & reps',
@@ -99,14 +107,17 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
   const [picking, setPicking] = useState(false);
   const [viewing, setViewing] = useState<Exercise | null>(null);
 
+  // every edit goes through here so the automatic warmups stay in the right place
+  const save = (next: Routine) => onChange(syncAutoWarmups(routine, next, byId));
+
   const updateExercise = (id: string, fn: (re: RoutineExercise) => RoutineExercise) =>
-    onChange({
+    save({
       ...routine,
       exercises: routine.exercises.map((re) => (re.id === id ? fn(re) : re)),
     });
 
   const addExercise = (e: Exercise) => {
-    onChange({
+    save({
       ...routine,
       exercises: [
         ...routine.exercises,
@@ -117,14 +128,14 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
   };
 
   const removeExercise = (id: string) =>
-    onChange({ ...routine, exercises: routine.exercises.filter((re) => re.id !== id) });
+    save({ ...routine, exercises: routine.exercises.filter((re) => re.id !== id) });
 
   const moveExercise = (index: number, dir: -1 | 1) => {
     const target = index + dir;
     if (target < 0 || target >= routine.exercises.length) return;
     const list = [...routine.exercises];
     [list[index], list[target]] = [list[target], list[index]];
-    onChange({ ...routine, exercises: list });
+    save({ ...routine, exercises: list });
   };
 
   const setKind = (reId: string, kind: ExerciseKind) =>
@@ -140,15 +151,18 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
       return { ...re, cardioFields: next };
     });
 
-  const setRepMode = (reId: string, mode: 'fixed' | 'range') =>
+  const setRepMode = (reId: string, mode: RepMode) =>
     updateExercise(reId, (re) => ({
       ...re,
       repMode: mode,
-      sets: re.sets.map((s) =>
-        mode === 'range'
-          ? { ...s, repsMax: s.repsMax ?? s.reps + 2 }
-          : { ...s, repsMax: undefined },
-      ),
+      sets: re.sets.map((s) => {
+        // warmups keep a normal rep count, AMRAP is only for working sets
+        if (mode === 'amrap' && s.type === 'normal') return { ...s, reps: 0, repsMax: undefined };
+        const reps = s.reps || 10;
+        return mode === 'range'
+          ? { ...s, reps, repsMax: s.repsMax ?? reps + 2 }
+          : { ...s, reps, repsMax: undefined };
+      }),
     }));
 
     const addSet = (reId: string, type: SetType) =>
@@ -167,6 +181,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
             reps: usesReps ? 10 : 0,
             ...(k === 'timed' ? { seconds: 30 } : {}),
             ...(usesReps && re.repMode === 'range' ? { repsMax: 12 } : {}),
+            ...(usesReps && re.repMode === 'amrap' && type === 'normal' ? { reps: 0 } : {}),
           };
       return { ...re, sets: [...re.sets, fresh] };
     });
@@ -197,7 +212,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
         <input
           id="routine-name"
           value={routine.name}
-          onChange={(e) => onChange({ ...routine, name: e.target.value })}
+          onChange={(e) => save({ ...routine, name: e.target.value })}
           onFocus={(e) => e.target.select()}
           placeholder="Routine name"
           className="w-full bg-transparent py-2 text-2xl font-semibold placeholder:text-slate-400 focus:outline-none"
@@ -207,6 +222,19 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
         </label>
       </div>
 
+      <label className="mb-4 flex cursor-pointer items-center justify-between gap-3 rounded-xl bg-slate-900 px-4 py-3 ring-1 ring-slate-800">
+        <span className="text-sm">
+          <span className="block text-slate-200">Auto warmups</span>
+          <span className="block text-xs text-slate-500">2 warmup sets for each new muscle</span>
+        </span>
+        <input
+          type="checkbox"
+          checked={autoWarmupOn(routine)}
+          onChange={(e) => save({ ...routine, autoWarmup: e.target.checked })}
+          className="h-5 w-5 shrink-0 accent-emerald-500"
+        />
+      </label>
+
       <div className="space-y-4">
         {routine.exercises.map((re, index) => {
           const ex = byId.get(re.exerciseId);
@@ -214,6 +242,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
           const kind: ExerciseKind = re.kind ?? 'strength';
           const usesReps = kind === 'strength' || kind === 'bodyweight';
           const range = usesReps && re.repMode === 'range';
+          const repMode: RepMode = usesReps ? (re.repMode ?? 'fixed') : 'fixed';
           const cardioKeys = re.cardioFields ?? DEFAULT_CARDIO;
 
           const cols: ColDef[] =
@@ -342,15 +371,16 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                   {cols.map((c) =>
                     c.key === 'reps' ? (
                       <label key="reps" className="relative flex items-center justify-center gap-1">
-                        <span>{range ? 'Range reps' : 'Reps'}</span>
+                        <span>{REP_MODE_LABELS[repMode]}</span>
                         <Chevron />
                         <select
-                          value={range ? 'range' : 'fixed'}
-                          onChange={(e) => setRepMode(re.id, e.target.value as 'fixed' | 'range')}
+                          value={repMode}
+                          onChange={(e) => setRepMode(re.id, e.target.value as RepMode)}
                           className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                         >
                           <option value="fixed">Reps</option>
                           <option value="range">Range reps</option>
+                          <option value="amrap">As many as possible</option>
                         </select>
                       </label>
                     ) : (
@@ -368,6 +398,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                       onClick={() =>
                         updateSet(re.id, s.id, {
                           type: s.type === 'warmup' ? 'normal' : 'warmup',
+                          auto: undefined, // a set you changed by hand is yours to keep
                         })
                       }
                       aria-label="Toggle warmup or normal set"
@@ -401,6 +432,16 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                             onKeyDown={blockMinus}
                             className={inputClass + ' min-w-0'}
                           />
+                        );
+                      }
+                      if (repMode === 'amrap' && s.type === 'normal') {
+                        return (
+                          <div
+                            key="reps"
+                            className="flex h-10 items-center justify-center rounded-lg bg-slate-800 text-sm font-semibold text-emerald-400"
+                          >
+                            AMRAP
+                          </div>
                         );
                       }
                       return range ? (

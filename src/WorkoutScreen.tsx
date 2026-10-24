@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
 import { imageUrl } from './exercises';
 import { useExercises } from './ExercisesContext';
-import { blockMinus, getCols, gridTemplate, isRange, num, usesReps } from './columns';
+import { blockMinus, getCols, gridTemplate, isAmrap, isRange, num, usesReps } from './columns';
 import { elapsedMs, formatDuration } from './session';
 import { uid } from './utils';
-import type { RoutineExercise, WorkoutSession, WorkoutSet } from './types';
+import type { FinishedWorkout, RoutineExercise, WorkoutSession, WorkoutSet } from './types';
 
 export type FinishMode = 'save' | 'update' | 'discard';
 
 interface Props {
   session: WorkoutSession;
+  history: FinishedWorkout[];
   onChange: (s: WorkoutSession) => void;
   onMinimize: () => void;
   onFinish: (mode: FinishMode) => void;
@@ -25,11 +26,24 @@ const newSet = (re: RoutineExercise): WorkoutSet => {
     id: uid(),
     type: 'normal',
     weightKg: 0,
-    reps: reps ? 10 : 0,
+    reps: reps && re.repMode !== 'amrap' ? 10 : 0,
     ...(kind === 'timed' ? { seconds: 30 } : {}),
     ...(reps && re.repMode === 'range' ? { repsMax: 12 } : {}),
     done: false,
   };
+};
+
+// Reps done in each working set the last time this exercise was done as AMRAP
+const lastAmrapReps = (re: RoutineExercise, history: FinishedWorkout[]): number[] => {
+  for (const w of history) {
+    const prev =
+      w.exercises.find((x) => x.id === re.id) ??
+      w.exercises.find((x) => x.exerciseId === re.exerciseId);
+    if (prev?.repMode !== 'amrap') continue;
+    const reps = prev.sets.filter((s) => s.type === 'normal').map((s) => s.reps);
+    if (reps.some((n) => n > 0)) return reps;
+  }
+  return [];
 };
 
 const labelOf = (sets: WorkoutSet[], i: number) =>
@@ -37,7 +51,7 @@ const labelOf = (sets: WorkoutSet[], i: number) =>
     ? 'W'
     : String(sets.slice(0, i + 1).filter((s) => s.type === 'normal').length);
 
-export default function WorkoutScreen({ session, onChange, onMinimize, onFinish }: Props) {
+export default function WorkoutScreen({ session, history, onChange, onMinimize, onFinish }: Props) {
   const { byId } = useExercises();
   const [now, setNow] = useState(Date.now());
   const [finishing, setFinishing] = useState(false);
@@ -73,7 +87,17 @@ export default function WorkoutScreen({ session, onChange, onMinimize, onFinish 
       const last = re.sets[re.sets.length - 1];
       return {
         ...re,
-        sets: [...re.sets, last ? { ...last, id: uid(), done: false } : newSet(re)],
+        sets: [
+          ...re.sets,
+          last
+            ? {
+                ...last,
+                id: uid(),
+                done: false,
+                ...(isAmrap(re) && last.type === 'normal' ? { reps: 0 } : {}),
+              }
+            : newSet(re),
+        ],
       };
     });
 
@@ -130,6 +154,8 @@ export default function WorkoutScreen({ session, onChange, onMinimize, onFinish 
           const ex = byId.get(re.exerciseId);
           const cols = getCols(re);
           const range = isRange(re);
+          const amrap = isAmrap(re);
+          const lastReps = amrap ? lastAmrapReps(re, history) : [];
           const template = gridTemplate(re, '2.75rem');
           const allDone = re.sets.length > 0 && re.sets.every((s) => s.done);
 
@@ -160,7 +186,9 @@ export default function WorkoutScreen({ session, onChange, onMinimize, onFinish 
                 >
                   <span>Set</span>
                   {cols.map((c) => (
-                    <span key={c.key}>{c.key === 'reps' && range ? 'Range reps' : c.label}</span>
+                    <span key={c.key}>
+                      {c.key === 'reps' && range ? 'Range reps' : c.key === 'reps' && amrap ? 'AMRAP' : c.label}
+                    </span>
                   ))}
                   <span>✓</span>
                 </div>
@@ -249,7 +277,13 @@ export default function WorkoutScreen({ session, onChange, onMinimize, onFinish 
                           type="number"
                           inputMode="numeric"
                           min={0}
-                          placeholder="0"
+                          placeholder={
+                            amrap && s.type === 'normal'
+                              ? lastReps[Number(labelOf(re.sets, i)) - 1]
+                                ? `last ${lastReps[Number(labelOf(re.sets, i)) - 1]}`
+                                : 'max'
+                              : '0'
+                          }
                           value={s.reps || ''}
                           onKeyDown={blockMinus}
                           onChange={(e) => patchSet(re.id, s.id, { reps: num(e.target.value) })}
