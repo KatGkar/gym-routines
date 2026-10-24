@@ -1,10 +1,18 @@
 import { useState } from 'react';
-import type { KeyboardEvent } from 'react';
 import ExercisePicker from './ExercisePicker';
 import ImageViewer from './ImageViewer';
 import { imageUrl } from './exercises';
 import { useExercises } from './useExercises';
 import { uid } from './utils';
+import {
+  blockMinus,
+  DEFAULT_CARDIO,
+  getCols,
+  gridTemplate,
+  isRange,
+  num,
+  usesReps,
+} from './columns';
 import { PencilIcon } from './icons';
 import { autoWarmupOn, syncAutoWarmups } from './warmups';
 
@@ -25,23 +33,6 @@ interface Props {
   onBack: () => void;
 }
 
-type NumKey = 'weightKg' | 'seconds' | 'minutes' | 'distanceKm' | 'speedKmh' | 'inclinePct';
-interface ColDef {
-  key: NumKey | 'reps';
-  label: string;
-  step: string;
-}
-
-const COLS: Record<NumKey, ColDef> = {
-  weightKg: { key: 'weightKg', label: 'kg', step: '0.5' },
-  seconds: { key: 'seconds', label: 'Sec', step: '5' },
-  minutes: { key: 'minutes', label: 'Min', step: '1' },
-  distanceKm: { key: 'distanceKm', label: 'km', step: '0.1' },
-  speedKmh: { key: 'speedKmh', label: 'km/h', step: '0.1' },
-  inclinePct: { key: 'inclinePct', label: 'Incl. %', step: '0.5' },
-};
-const REPS_COL: ColDef = { key: 'reps', label: 'Reps', step: '1' };
-
 const CARDIO_CHIPS: { key: CardioField; chip: string }[] = [
   { key: 'weightKg', chip: 'Weight' },
   { key: 'minutes', chip: 'Time' },
@@ -49,8 +40,6 @@ const CARDIO_CHIPS: { key: CardioField; chip: string }[] = [
   { key: 'speedKmh', chip: 'Speed' },
   { key: 'inclinePct', chip: 'Incline' },
 ];
-const DEFAULT_CARDIO: CardioField[] = ['minutes', 'distanceKm'];
-
 const REP_MODE_LABELS: Record<RepMode, string> = {
   fixed: 'Reps',
   range: 'Range reps',
@@ -76,12 +65,6 @@ const defaultKind = (e: Exercise): ExerciseKind => {
 const labels = (sets: WorkoutSet[]) => {
   let n = 0;
   return sets.map((s) => (s.type === 'warmup' ? 'W' : String(++n)));
-};
-
-// Never allow negative or invalid numbers
-const num = (v: string) => Math.max(0, Number(v) || 0);
-const blockMinus = (e: KeyboardEvent<HTMLInputElement>) => {
-  if (['-', '+', 'e', 'E'].includes(e.key)) e.preventDefault();
 };
 
 const inputClass =
@@ -168,7 +151,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
   const addSet = (reId: string, type: SetType) =>
     updateExercise(reId, (re) => {
       const k = re.kind ?? 'strength';
-      const usesReps = k === 'strength' || k === 'bodyweight';
+      const reps = usesReps(re);
       // copy the values of the previous set (of the same type if there is one)
       const prev =
         [...re.sets].reverse().find((s) => s.type === type) ?? re.sets[re.sets.length - 1];
@@ -178,10 +161,10 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
             id: uid(),
             type,
             weightKg: 0,
-            reps: usesReps ? 10 : 0,
+            reps: reps ? 10 : 0,
             ...(k === 'timed' ? { seconds: 30 } : {}),
-            ...(usesReps && re.repMode === 'range' ? { repsMax: 12 } : {}),
-            ...(usesReps && re.repMode === 'amrap' && type === 'normal' ? { reps: 0 } : {}),
+            ...(reps && re.repMode === 'range' ? { repsMax: 12 } : {}),
+            ...(reps && re.repMode === 'amrap' && type === 'normal' ? { reps: 0 } : {}),
           };
       return { ...re, sets: [...re.sets, fresh] };
     });
@@ -240,27 +223,11 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
           const ex = byId.get(re.exerciseId);
           const setLabels = labels(re.sets);
           const kind: ExerciseKind = re.kind ?? 'strength';
-          const usesReps = kind === 'strength' || kind === 'bodyweight';
-          const range = usesReps && re.repMode === 'range';
-          const repMode: RepMode = usesReps ? (re.repMode ?? 'fixed') : 'fixed';
+          const range = isRange(re);
+          const repMode: RepMode = usesReps(re) ? (re.repMode ?? 'fixed') : 'fixed';
           const cardioKeys = re.cardioFields ?? DEFAULT_CARDIO;
-
-          const cols: ColDef[] =
-            kind === 'strength'
-              ? [COLS.weightKg, REPS_COL]
-              : kind === 'bodyweight'
-                ? [REPS_COL]
-                : kind === 'timed'
-                  ? [COLS.seconds]
-                  : CARDIO_CHIPS.map((c) => c.key)
-                      .filter((k) => cardioKeys.includes(k))
-                      .map((k) => COLS[k]);
-
-          const gridStyle = {
-            gridTemplateColumns: `2.5rem ${cols
-              .map((c) => (c.key === 'reps' && range ? 'minmax(0,1.6fr)' : 'minmax(0,1fr)'))
-              .join(' ')} 2rem`,
-          };
+          const cols = getCols(re);
+          const gridStyle = { gridTemplateColumns: gridTemplate(re, '2rem') };
 
           return (
             <section key={re.id} className="rounded-2xl bg-slate-900 p-4 ring-1 ring-slate-800">
