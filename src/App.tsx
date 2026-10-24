@@ -4,7 +4,8 @@ import RoutineEditor from './RoutineEditor';
 import WorkoutScreen from './WorkoutScreen';
 import type { FinishMode } from './WorkoutScreen';
 import HistoryScreen from './HistoryScreen';
-import { ExercisesProvider, useExercises } from './ExercisesContext';
+import { ExercisesProvider } from './ExercisesContext';
+import { useExercises } from './useExercises';
 import { useRoutines } from './useRoutines';
 import { useLocalState } from './useLocalState';
 import { exportBackup, parseBackup } from './backup';
@@ -14,6 +15,23 @@ import type { FinishedWorkout, Routine, WorkoutSession } from './types';
 import { CopyIcon, PlayIcon, TrashIcon } from './icons';
 
 type View = 'routines' | 'history' | 'workout';
+
+// A fresh workout copied from a routine, with the timer running
+function newSession(r: Routine): WorkoutSession {
+  const now = Date.now();
+  return {
+    id: uid(),
+    routineId: r.id,
+    routineName: r.name || 'Untitled routine',
+    startedAt: now,
+    accumulatedMs: 0,
+    resumedAt: now,
+    exercises: r.exercises.map((re) => ({
+      ...re,
+      sets: re.sets.map((s) => ({ ...s, id: uid(), done: false })),
+    })),
+  };
+}
 
 function AppInner() {
   const [routines, setRoutines] = useRoutines();
@@ -67,19 +85,7 @@ function AppInner() {
     if (session && !confirm('A workout is already in progress. Discard it and start this one?')) {
       return;
     }
-    const now = Date.now();
-    setSession({
-      id: uid(),
-      routineId: r.id,
-      routineName: r.name || 'Untitled routine',
-      startedAt: now,
-      accumulatedMs: 0,
-      resumedAt: now,
-      exercises: r.exercises.map((re) => ({
-        ...re,
-        sets: re.sets.map((s) => ({ ...s, id: uid(), done: false })),
-      })),
-    });
+    setSession(newSession(r));
     setView('workout');
   };
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { imageUrl } from './exercises';
-import { useExercises } from './ExercisesContext';
+import { useExercises } from './useExercises';
 import { blockMinus, getCols, gridTemplate, isAmrap, isRange, num, usesReps } from './columns';
 import { elapsedMs, formatDuration } from './session';
 import { uid } from './utils';
@@ -53,7 +53,7 @@ const labelOf = (sets: WorkoutSet[], i: number) =>
 
 export default function WorkoutScreen({ session, history, onChange, onMinimize, onFinish }: Props) {
   const { byId } = useExercises();
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   const [finishing, setFinishing] = useState(false);
 
   useEffect(() => {

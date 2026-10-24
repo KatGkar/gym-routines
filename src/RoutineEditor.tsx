@@ -3,7 +3,7 @@ import type { KeyboardEvent } from 'react';
 import ExercisePicker from './ExercisePicker';
 import ImageViewer from './ImageViewer';
 import { imageUrl } from './exercises';
-import { useExercises } from './ExercisesContext';
+import { useExercises } from './useExercises';
 import { uid } from './utils';
 import { PencilIcon } from './icons';
 import { autoWarmupOn, syncAutoWarmups } from './warmups';

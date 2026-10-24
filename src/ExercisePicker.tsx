@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import ImageViewer from './ImageViewer';
 import { imageUrl } from './exercises';
-import { useExercises } from './ExercisesContext';
+import { useExercises } from './useExercises';
 import { TrashIcon } from './icons';
 import type { Exercise } from './types';
 

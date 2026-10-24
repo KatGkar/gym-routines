@@ -1,7 +1,9 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { exercises as builtIn } from './exercises';
 import { uid } from './utils';
+import { ExercisesContext } from './useExercises';
+import type { ExercisesCtx } from './useExercises';
 import type { Exercise } from './types';
 
 const KEY = 'gym-routines:custom-exercises:v1';
@@ -15,17 +17,6 @@ function load(): Exercise[] {
   }
 }
 
-interface Ctx {
-  all: Exercise[];
-  byId: Map<string, Exercise>;
-  custom: Exercise[];
-  setCustom: (list: Exercise[]) => void;
-  addCustom: (name: string, muscle: string, equipment: string) => Exercise;
-  removeCustom: (id: string) => void;
-}
-
-const ExercisesContext = createContext<Ctx | null>(null);
-
 export function ExercisesProvider({ children }: { children: ReactNode }) {
   const [custom, setCustom] = useState<Exercise[]>(load);
 
@@ -37,7 +28,7 @@ export function ExercisesProvider({ children }: { children: ReactNode }) {
     }
   }, [custom]);
 
-  const value = useMemo<Ctx>(() => {
+  const value = useMemo<ExercisesCtx>(() => {
     const all = [...custom, ...builtIn];
     return {
       all,
@@ -64,10 +55,4 @@ export function ExercisesProvider({ children }: { children: ReactNode }) {
     };
   }, [custom]);
   return <ExercisesContext.Provider value={value}>{children}</ExercisesContext.Provider>;
-}
-
-export function useExercises() {
-  const ctx = useContext(ExercisesContext);
-  if (!ctx) throw new Error('useExercises must be used inside ExercisesProvider');
-  return ctx;
 }
