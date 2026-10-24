@@ -112,20 +112,16 @@ function AppInner() {
               ? r
               : {
                   ...r,
-                  exercises: r.exercises.map((re) => {
-                    const used = session.exercises.find((x) => x.id === re.id);
-                    return used
-                      ? {
-                          ...re,
-                          sets: used.sets.map((s) => ({
-                            ...s,
-                            done: undefined,
-                            // AMRAP has no target, so the next workout starts empty again
-                            ...(re.repMode === 'amrap' && s.type === 'normal' ? { reps: 0 } : {}),
-                          })),
-                        }
-                      : re;
-                  }),
+                  // the routine becomes what you did, incl. exercises added, swapped or removed
+                  exercises: session.exercises.map((re) => ({
+                    ...re,
+                    sets: re.sets.map((s) => ({
+                      ...s,
+                      done: undefined,
+                      // AMRAP has no target, so the next workout starts empty again
+                      ...(re.repMode === 'amrap' && s.type === 'normal' ? { reps: 0 } : {}),
+                    })),
+                  })),
                 },
           ),
         );

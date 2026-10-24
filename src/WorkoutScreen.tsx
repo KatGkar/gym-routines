@@ -1,10 +1,28 @@
 import { useEffect, useState } from 'react';
+import ExercisePicker from './ExercisePicker';
 import { imageUrl } from './exercises';
 import { useExercises } from './useExercises';
-import { blockMinus, getCols, gridTemplate, isAmrap, isRange, num, usesReps } from './columns';
+import {
+  blockMinus,
+  defaultKind,
+  formatSet,
+  getCols,
+  gridTemplate,
+  isAmrap,
+  isRange,
+  num,
+  usesReps,
+} from './columns';
 import { elapsedMs, formatDuration } from './session';
 import { uid } from './utils';
-import type { FinishedWorkout, RoutineExercise, WorkoutSession, WorkoutSet } from './types';
+import type {
+  Exercise,
+  FinishedExercise,
+  FinishedWorkout,
+  RoutineExercise,
+  WorkoutSession,
+  WorkoutSet,
+} from './types';
 
 export type FinishMode = 'save' | 'update' | 'discard';
 
@@ -46,6 +64,28 @@ const lastAmrapReps = (re: RoutineExercise, history: FinishedWorkout[]): number[
   return [];
 };
 
+// This exercise in the most recent saved workout where at least one of its sets was done
+const previousOf = (
+  re: Pick<RoutineExercise, 'id' | 'exerciseId'>,
+  history: FinishedWorkout[],
+): FinishedExercise | undefined => {
+  for (const w of history) {
+    const prev =
+      w.exercises.find((x) => x.id === re.id && x.exerciseId === re.exerciseId) ??
+      w.exercises.find((x) => x.exerciseId === re.exerciseId);
+    if (prev?.sets.some((s) => s.done)) return prev;
+  }
+  return undefined;
+};
+
+// The matching done set from last time: the nth warmup for a warmup, the nth working set otherwise
+const previousSet = (prev: FinishedExercise | undefined, sets: WorkoutSet[], i: number) => {
+  const type = sets[i].type;
+  const n = sets.slice(0, i).filter((s) => s.type === type).length;
+  const match = prev?.sets.filter((s) => s.type === type)[n];
+  return match?.done ? match : undefined;
+};
+
 const labelOf = (sets: WorkoutSet[], i: number) =>
   sets[i].type === 'warmup'
     ? 'W'
@@ -55,6 +95,8 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
   const { byId } = useExercises();
   const [now, setNow] = useState(() => Date.now());
   const [finishing, setFinishing] = useState(false);
+  // null = closed, 'add' = add a new exercise, otherwise the id of the exercise to swap
+  const [picking, setPicking] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -103,6 +145,57 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
 
   const removeLastSet = (reId: string) =>
     updateExercise(reId, (re) => ({ ...re, sets: re.sets.slice(0, -1) }));
+
+  // Copy last time's values into a set (only the fields this exercise shows)
+  const copyPrevious = (re: RoutineExercise, setId: string, prev: WorkoutSet) =>
+    patchSet(
+      re.id,
+      setId,
+      Object.fromEntries(
+        getCols(re).flatMap((c) =>
+          c.key === 'reps'
+            ? [
+                ['reps', prev.reps],
+                ['repsMax', prev.repsMax],
+              ]
+            : [[c.key, prev[c.key]]],
+        ),
+      ),
+    );
+
+  // A new exercise starts with the sets done last time, or one empty set
+  const addExercise = (e: Exercise) => {
+    const id = uid();
+    const prev = previousOf({ id, exerciseId: e.id }, history);
+    const base: RoutineExercise = prev
+      ? {
+          id,
+          exerciseId: e.id,
+          kind: prev.kind,
+          repMode: prev.repMode,
+          cardioFields: prev.cardioFields,
+          sets: [],
+        }
+      : { id, exerciseId: e.id, kind: defaultKind(e), sets: [] };
+    const sets = prev ? prev.sets.map((s) => ({ ...s, id: uid(), done: false })) : [newSet(base)];
+    onChange({ ...session, exercises: [...session.exercises, { ...base, sets }] });
+  };
+
+  // Swap is a like-for-like replacement (e.g. the machine is taken): keep the type and sets,
+  // but the notes were for the old exercise
+  const swapExercise = (reId: string, e: Exercise) =>
+    updateExercise(reId, (re) => ({ ...re, exerciseId: e.id, notes: undefined }));
+
+  const removeExercise = (re: RoutineExercise) => {
+    if (re.sets.some((s) => s.done) && !confirm('Remove this exercise and its done sets?')) return;
+    onChange({ ...session, exercises: session.exercises.filter((x) => x.id !== re.id) });
+  };
+
+  const pick = (e: Exercise) => {
+    if (picking === 'add') addExercise(e);
+    else if (picking) swapExercise(picking, e);
+    setPicking(null);
+  };
 
   return (
     <div>
@@ -156,6 +249,7 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
           const range = isRange(re);
           const amrap = isAmrap(re);
           const lastReps = amrap ? lastAmrapReps(re, history) : [];
+          const prev = previousOf(re, history);
           const template = gridTemplate(re, '2.75rem');
           const allDone = re.sets.length > 0 && re.sets.every((s) => s.done);
 
@@ -176,6 +270,21 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
                     {allDone && <span className="ml-2 text-xs text-slate-400">✓ done</span>}
                   </div>
                   {re.notes && <div className="text-xs text-slate-400">{re.notes}</div>}
+                </div>
+                <div className="flex shrink-0 items-center">
+                  <button
+                    onClick={() => setPicking(re.id)}
+                    className="px-2 py-1 text-xs font-medium text-slate-400 active:text-slate-100"
+                  >
+                    Swap
+                  </button>
+                  <button
+                    onClick={() => removeExercise(re)}
+                    aria-label="Remove exercise"
+                    className="px-2 py-1 text-slate-500 active:text-red-400"
+                  >
+                    ✕
+                  </button>
                 </div>
               </div>
 
@@ -199,115 +308,137 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
               )}
 
               <div className="space-y-2">
-                {re.sets.map((s, i) => (
-                  <div
-                    key={s.id}
-                    className={'grid items-center gap-2 ' + (s.done ? 'opacity-60' : '')}
-                    style={{ gridTemplateColumns: template }}
-                  >
-                    <div
-                      className={
-                        'flex h-10 items-center justify-center rounded-lg font-semibold ' +
-                        (s.type === 'warmup'
-                          ? 'bg-amber-500/20 text-amber-400'
-                          : 'bg-slate-800 text-slate-200')
-                      }
-                    >
-                      {labelOf(re.sets, i)}
-                    </div>
-
-                    {cols.map((c) => {
-                      if (c.key !== 'reps') {
-                        const key = c.key;
-                        return (
-                          <input
-                            key={key}
-                            type="number"
-                            inputMode="decimal"
-                            step={c.step}
-                            min={0}
-                            placeholder="0"
-                            value={s[key] || ''}
-                            onKeyDown={blockMinus}
-                            onChange={(e) =>
-                              patchSet(re.id, s.id, {
-                                [key]: num(e.target.value),
-                              } as Partial<WorkoutSet>)
-                            }
-                            className={inputClass}
-                          />
-                        );
-                      }
-                      return range ? (
-                        <div key="reps" className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            inputMode="numeric"
-                            min={0}
-                            placeholder="8"
-                            value={s.reps || ''}
-                            onKeyDown={blockMinus}
-                            onChange={(e) => {
-                              const v = num(e.target.value);
-                              patchSet(re.id, s.id, {
-                                reps: v,
-                                ...(s.repsMax !== undefined && v > s.repsMax ? { repsMax: v } : {}),
-                              });
-                            }}
-                            className={inputClass}
-                          />
-                          <span className="text-slate-500">–</span>
-                          <input
-                            type="number"
-                            inputMode="numeric"
-                            min={0}
-                            placeholder="12"
-                            value={s.repsMax || ''}
-                            onKeyDown={blockMinus}
-                            onChange={(e) =>
-                              patchSet(re.id, s.id, { repsMax: num(e.target.value) })
-                            }
-                            onBlur={() => {
-                              if (s.repsMax !== undefined && s.repsMax > 0 && s.repsMax < s.reps) {
-                                patchSet(re.id, s.id, { repsMax: s.reps });
-                              }
-                            }}
-                            className={inputClass}
-                          />
-                        </div>
-                      ) : (
-                        <input
-                          key="reps"
-                          type="number"
-                          inputMode="numeric"
-                          min={0}
-                          placeholder={
-                            amrap && s.type === 'normal'
-                              ? lastReps[Number(labelOf(re.sets, i)) - 1]
-                                ? `last ${lastReps[Number(labelOf(re.sets, i)) - 1]}`
-                                : 'max'
-                              : '0'
+                {re.sets.map((s, i) => {
+                  const last = previousSet(prev, re.sets, i);
+                  // AMRAP working sets already show last time's reps inside the box
+                  const showLast = last && !(amrap && s.type === 'normal');
+                  return (
+                    <div key={s.id} className={s.done ? 'opacity-60' : ''}>
+                      <div
+                        className="grid items-center gap-2"
+                        style={{ gridTemplateColumns: template }}
+                      >
+                        <div
+                          className={
+                            'flex h-10 items-center justify-center rounded-lg font-semibold ' +
+                            (s.type === 'warmup'
+                              ? 'bg-amber-500/20 text-amber-400'
+                              : 'bg-slate-800 text-slate-200')
                           }
-                          value={s.reps || ''}
-                          onKeyDown={blockMinus}
-                          onChange={(e) => patchSet(re.id, s.id, { reps: num(e.target.value) })}
-                          className={inputClass}
-                        />
-                      );
-                    })}
+                        >
+                          {labelOf(re.sets, i)}
+                        </div>
 
-                    <button
-                      onClick={() => patchSet(re.id, s.id, { done: !s.done })}
-                      aria-label={s.done ? 'Mark set not done' : 'Mark set done'}
-                      className={
-                        'h-10 rounded-lg text-lg font-bold ' +
-                        (s.done ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-600')
-                      }
-                    >
-                      ✓
-                    </button>
-                  </div>
-                ))}
+                        {cols.map((c) => {
+                          if (c.key !== 'reps') {
+                            const key = c.key;
+                            return (
+                              <input
+                                key={key}
+                                type="number"
+                                inputMode="decimal"
+                                step={c.step}
+                                min={0}
+                                placeholder="0"
+                                value={s[key] || ''}
+                                onKeyDown={blockMinus}
+                                onChange={(e) =>
+                                  patchSet(re.id, s.id, {
+                                    [key]: num(e.target.value),
+                                  } as Partial<WorkoutSet>)
+                                }
+                                className={inputClass}
+                              />
+                            );
+                          }
+                          return range ? (
+                            <div key="reps" className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                min={0}
+                                placeholder="8"
+                                value={s.reps || ''}
+                                onKeyDown={blockMinus}
+                                onChange={(e) => {
+                                  const v = num(e.target.value);
+                                  patchSet(re.id, s.id, {
+                                    reps: v,
+                                    ...(s.repsMax !== undefined && v > s.repsMax
+                                      ? { repsMax: v }
+                                      : {}),
+                                  });
+                                }}
+                                className={inputClass}
+                              />
+                              <span className="text-slate-500">–</span>
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                min={0}
+                                placeholder="12"
+                                value={s.repsMax || ''}
+                                onKeyDown={blockMinus}
+                                onChange={(e) =>
+                                  patchSet(re.id, s.id, { repsMax: num(e.target.value) })
+                                }
+                                onBlur={() => {
+                                  if (
+                                    s.repsMax !== undefined &&
+                                    s.repsMax > 0 &&
+                                    s.repsMax < s.reps
+                                  ) {
+                                    patchSet(re.id, s.id, { repsMax: s.reps });
+                                  }
+                                }}
+                                className={inputClass}
+                              />
+                            </div>
+                          ) : (
+                            <input
+                              key="reps"
+                              type="number"
+                              inputMode="numeric"
+                              min={0}
+                              placeholder={
+                                amrap && s.type === 'normal'
+                                  ? lastReps[Number(labelOf(re.sets, i)) - 1]
+                                    ? `last ${lastReps[Number(labelOf(re.sets, i)) - 1]}`
+                                    : 'max'
+                                  : '0'
+                              }
+                              value={s.reps || ''}
+                              onKeyDown={blockMinus}
+                              onChange={(e) => patchSet(re.id, s.id, { reps: num(e.target.value) })}
+                              className={inputClass}
+                            />
+                          );
+                        })}
+
+                        <button
+                          onClick={() => patchSet(re.id, s.id, { done: !s.done })}
+                          aria-label={s.done ? 'Mark set not done' : 'Mark set done'}
+                          className={
+                            'h-10 rounded-lg text-lg font-bold ' +
+                            (s.done
+                              ? 'bg-emerald-500 text-slate-950'
+                              : 'bg-slate-800 text-slate-600')
+                          }
+                        >
+                          ✓
+                        </button>
+                      </div>
+                      {showLast && (
+                        <button
+                          onClick={() => copyPrevious(re, s.id, last)}
+                          className="mt-0.5 block pl-12 text-left text-[11px] text-slate-500 active:text-slate-300"
+                        >
+                          Last: {formatSet(prev!, last)}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
 
               <div className="mt-3 flex gap-2">
@@ -329,7 +460,22 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
             </section>
           );
         })}
+
+        <button
+          onClick={() => setPicking('add')}
+          className="w-full rounded-2xl bg-slate-900 py-4 text-base font-semibold text-emerald-400 ring-1 ring-slate-800 active:bg-slate-800"
+        >
+          + Add exercise
+        </button>
       </div>
+
+      {picking && (
+        <ExercisePicker
+          title={picking === 'add' ? 'Add exercise' : 'Swap exercise'}
+          onPick={pick}
+          onClose={() => setPicking(null)}
+        />
+      )}
 
       {finishing && (
         <div

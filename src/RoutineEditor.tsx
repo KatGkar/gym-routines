@@ -7,6 +7,7 @@ import { uid } from './utils';
 import {
   blockMinus,
   DEFAULT_CARDIO,
+  defaultKind,
   getCols,
   gridTemplate,
   isRange,
@@ -51,14 +52,6 @@ const KIND_LABELS: Record<ExerciseKind, string> = {
   bodyweight: 'Bodyweight reps',
   timed: 'Timed',
   cardio: 'Cardio / distance',
-};
-
-// What type a newly added exercise starts as, based on its database category
-const defaultKind = (e: Exercise): ExerciseKind => {
-  if (e.category === 'cardio') return 'cardio';
-  if (e.category === 'stretching') return 'timed';
-  if (e.category === 'plyometrics') return 'bodyweight';
-  return 'strength';
 };
 
 // "W" for warmup sets, 1, 2, 3... for normal sets

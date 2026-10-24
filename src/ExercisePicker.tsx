@@ -6,6 +6,7 @@ import { TrashIcon } from './icons';
 import type { Exercise } from './types';
 
 interface Props {
+  title?: string;
   onPick: (e: Exercise) => void;
   onClose: () => void;
 }
@@ -38,7 +39,7 @@ const selectClass = (active: boolean) =>
   'w-full rounded-xl bg-slate-900 px-3 py-2 text-sm ring-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 ' +
   (active ? 'text-emerald-400 ring-emerald-500' : 'text-slate-100 ring-slate-800');
 
-export default function ExercisePicker({ onPick, onClose }: Props) {
+export default function ExercisePicker({ title = 'Add exercise', onPick, onClose }: Props) {
   const { all, addCustom, removeCustom } = useExercises();
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
@@ -182,7 +183,7 @@ export default function ExercisePicker({ onPick, onClose }: Props) {
       <div className="mx-auto flex h-full max-w-md flex-col px-4 pt-6">
         <div className="shrink-0 pb-2">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-2xl font-bold">Add exercise</h2>
+            <h2 className="text-2xl font-bold">{title}</h2>
             <button onClick={onClose} className="px-2 py-2 text-slate-400 active:text-slate-100">
               Cancel
             </button>

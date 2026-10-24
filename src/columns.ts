@@ -1,5 +1,5 @@
 import type { KeyboardEvent } from 'react';
-import type { CardioField, RoutineExercise, WorkoutSet } from './types';
+import type { CardioField, Exercise, ExerciseKind, RoutineExercise, WorkoutSet } from './types';
 
 export type NumKey = 'weightKg' | 'seconds' | 'minutes' | 'distanceKm' | 'speedKmh' | 'inclinePct';
 export interface ColDef {
@@ -26,6 +26,14 @@ export const CARDIO_ORDER: CardioField[] = [
   'inclinePct',
 ];
 export const DEFAULT_CARDIO: CardioField[] = ['minutes', 'distanceKm'];
+
+// What type a newly added exercise starts as, based on its database category
+export const defaultKind = (e: Exercise): ExerciseKind => {
+  if (e.category === 'cardio') return 'cardio';
+  if (e.category === 'stretching') return 'timed';
+  if (e.category === 'plyometrics') return 'bodyweight';
+  return 'strength';
+};
 
 export const usesReps = (re: RoutineExercise) => {
   const k = re.kind ?? 'strength';
