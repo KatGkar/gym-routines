@@ -260,6 +260,7 @@ export default function ExercisePicker({ title = 'Add exercise', onPick, onClose
                   >
                     <img
                       src={imageUrl(e.images[0])}
+                      crossOrigin="anonymous"
                       alt=""
                       loading="lazy"
                       className="h-16 w-16 rounded-lg bg-slate-800 object-cover"

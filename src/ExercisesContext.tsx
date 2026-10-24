@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { exercises as builtIn } from './exercises';
 import { uid } from './utils';
 import { ExercisesContext } from './useExercises';
-import type { ExercisesCtx } from './useExercises';
+import type { Ctx } from './useExercises';
 import type { Exercise } from './types';
 
 const KEY = 'gym-routines:custom-exercises:v1';
@@ -28,7 +28,7 @@ export function ExercisesProvider({ children }: { children: ReactNode }) {
     }
   }, [custom]);
 
-  const value = useMemo<ExercisesCtx>(() => {
+  const value = useMemo<Ctx>(() => {
     const all = [...custom, ...builtIn];
     return {
       all,

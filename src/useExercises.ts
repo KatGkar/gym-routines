@@ -1,8 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { Exercise } from './types';
 
-// Lives apart from ExercisesProvider so that file only exports components (fast refresh)
-export interface ExercisesCtx {
+export interface Ctx {
   all: Exercise[];
   byId: Map<string, Exercise>;
   custom: Exercise[];
@@ -11,7 +10,7 @@ export interface ExercisesCtx {
   removeCustom: (id: string) => void;
 }
 
-export const ExercisesContext = createContext<ExercisesCtx | null>(null);
+export const ExercisesContext = createContext<Ctx | null>(null);
 
 export function useExercises() {
   const ctx = useContext(ExercisesContext);

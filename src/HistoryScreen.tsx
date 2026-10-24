@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { formatSet } from './columns';
+import { formatSet, setLabels } from './columns';
 import { formatDuration } from './session';
-import type { FinishedWorkout, WorkoutSet } from './types';
+import type { FinishedWorkout } from './types';
 import { CheckIcon, TrashIcon } from './icons';
 
 interface Props {
@@ -19,11 +19,6 @@ const hm = (ms: number) => {
   const m = Math.round(ms / 60000);
   return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
 };
-
-const labelOf = (sets: WorkoutSet[], i: number) =>
-  sets[i].type === 'warmup'
-    ? 'W'
-    : String(sets.slice(0, i + 1).filter((s) => s.type === 'normal').length);
 
 function WorkoutCard({ w, onDelete }: { w: FinishedWorkout; onDelete: (id: string) => void }) {
   const [open, setOpen] = useState(false);
@@ -61,21 +56,24 @@ function WorkoutCard({ w, onDelete }: { w: FinishedWorkout; onDelete: (id: strin
 
       {open && (
         <div className="space-y-3 border-t border-slate-800 px-4 py-3">
-          {w.exercises.map((e) => (
-            <div key={e.id}>
-              <div className="font-medium text-emerald-400">{e.name}</div>
-              {e.sets.length === 0 && <div className="text-xs text-slate-500">No sets</div>}
-              {e.sets.map((s, i) => (
-                <div key={s.id} className="text-sm text-slate-300">
-                  <span className="inline-block w-6 text-slate-500">{labelOf(e.sets, i)}</span>
-                  {formatSet(e, s)}{' '}
-                  <span className={s.done ? 'text-emerald-400' : 'text-slate-600'}>
-                    {s.done ? '✓' : '✗'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ))}
+          {w.exercises.map((e) => {
+            const labels = setLabels(e.sets);
+            return (
+              <div key={e.id}>
+                <div className="font-medium text-emerald-400">{e.name}</div>
+                {e.sets.length === 0 && <div className="text-xs text-slate-500">No sets</div>}
+                {e.sets.map((s, i) => (
+                  <div key={s.id} className="text-sm text-slate-300">
+                    <span className="inline-block w-6 text-slate-500">{labels[i]}</span>
+                    {formatSet(e, s)}{' '}
+                    <span className={s.done ? 'text-emerald-400' : 'text-slate-600'}>
+                      {s.done ? '✓' : '✗'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
         </div>
       )}
     </li>

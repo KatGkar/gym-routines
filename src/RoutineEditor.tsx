@@ -1,19 +1,21 @@
 import { useState } from 'react';
 import ExercisePicker from './ExercisePicker';
 import ImageViewer from './ImageViewer';
+import NumInput from './NumInput';
 import { imageUrl } from './exercises';
-import { useExercises } from './useExercises';
-import { uid } from './utils';
 import {
-  blockMinus,
+  CARDIO_ORDER,
   DEFAULT_CARDIO,
+  blankSet,
   defaultKind,
   getCols,
   gridTemplate,
   isRange,
-  num,
+  setLabels,
   usesReps,
 } from './columns';
+import { useExercises } from './useExercises';
+import { uid } from './utils';
 import { PencilIcon } from './icons';
 import { autoWarmupOn, syncAutoWarmups } from './warmups';
 
@@ -34,18 +36,15 @@ interface Props {
   onBack: () => void;
 }
 
-const CARDIO_CHIPS: { key: CardioField; chip: string }[] = [
-  { key: 'weightKg', chip: 'Weight' },
-  { key: 'minutes', chip: 'Time' },
-  { key: 'distanceKm', chip: 'Distance' },
-  { key: 'speedKmh', chip: 'Speed' },
-  { key: 'inclinePct', chip: 'Incline' },
-];
-const REP_MODE_LABELS: Record<RepMode, string> = {
-  fixed: 'Reps',
-  range: 'Range reps',
-  amrap: 'AMRAP',
+// Chip labels for the cardio fields, in the same order as CARDIO_ORDER
+const CHIP_LABELS: Record<CardioField, string> = {
+  weightKg: 'Weight',
+  minutes: 'Time',
+  distanceKm: 'Distance',
+  speedKmh: 'Speed',
+  inclinePct: 'Incline',
 };
+const CARDIO_CHIPS = CARDIO_ORDER.map((key) => ({ key, chip: CHIP_LABELS[key] }));
 
 const KIND_LABELS: Record<ExerciseKind, string> = {
   strength: 'Weight & reps',
@@ -54,10 +53,10 @@ const KIND_LABELS: Record<ExerciseKind, string> = {
   cardio: 'Cardio / distance',
 };
 
-// "W" for warmup sets, 1, 2, 3... for normal sets
-const labels = (sets: WorkoutSet[]) => {
-  let n = 0;
-  return sets.map((s) => (s.type === 'warmup' ? 'W' : String(++n)));
+const REP_MODE_LABELS: Record<RepMode, string> = {
+  fixed: 'Reps',
+  range: 'Range reps',
+  amrap: 'AMRAP',
 };
 
 const inputClass =
@@ -103,8 +102,10 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
     setPicking(false);
   };
 
-  const removeExercise = (id: string) =>
+  const removeExercise = (id: string, name: string) => {
+    if (!confirm(`Remove "${name}" from this routine?`)) return;
     save({ ...routine, exercises: routine.exercises.filter((re) => re.id !== id) });
+  };
 
   const moveExercise = (index: number, dir: -1 | 1) => {
     const target = index + dir;
@@ -121,7 +122,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
     updateExercise(reId, (re) => {
       const cur = re.cardioFields ?? DEFAULT_CARDIO;
       if (cur.includes(field) && cur.length === 1) return re; // keep at least one
-      const next = CARDIO_CHIPS.map((c) => c.key).filter((k) =>
+      const next = CARDIO_ORDER.filter((k) =>
         k === field ? !cur.includes(field) : cur.includes(k),
       );
       return { ...re, cardioFields: next };
@@ -143,22 +144,12 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
 
   const addSet = (reId: string, type: SetType) =>
     updateExercise(reId, (re) => {
-      const k = re.kind ?? 'strength';
-      const reps = usesReps(re);
       // copy the values of the previous set (of the same type if there is one)
       const prev =
         [...re.sets].reverse().find((s) => s.type === type) ?? re.sets[re.sets.length - 1];
       const fresh: WorkoutSet = prev
         ? { ...prev, id: uid(), type, done: undefined }
-        : {
-            id: uid(),
-            type,
-            weightKg: 0,
-            reps: reps ? 10 : 0,
-            ...(k === 'timed' ? { seconds: 30 } : {}),
-            ...(reps && re.repMode === 'range' ? { repsMax: 12 } : {}),
-            ...(reps && re.repMode === 'amrap' && type === 'normal' ? { reps: 0 } : {}),
-          };
+        : blankSet(re, type);
       return { ...re, sets: [...re.sets, fresh] };
     });
 
@@ -214,7 +205,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
       <div className="space-y-4">
         {routine.exercises.map((re, index) => {
           const ex = byId.get(re.exerciseId);
-          const setLabels = labels(re.sets);
+          const labels = setLabels(re.sets);
           const kind: ExerciseKind = re.kind ?? 'strength';
           const range = isRange(re);
           const repMode: RepMode = usesReps(re) ? (re.repMode ?? 'fixed') : 'fixed';
@@ -233,6 +224,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                   >
                     <img
                       src={imageUrl(ex.images[0])}
+                      crossOrigin="anonymous"
                       alt=""
                       loading="lazy"
                       className="h-14 w-14 rounded-lg bg-slate-800 object-cover"
@@ -240,9 +232,16 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                   </button>
                 )}
                 <div className="min-w-0 flex-1">
-                  <div className="font-semibold text-emerald-400">
-                    {ex?.name ?? 'Unknown exercise'}
-                  </div>
+                  {ex ? (
+                    <button
+                      onClick={() => setViewing(ex)}
+                      className="text-left font-semibold text-emerald-400 active:text-emerald-500"
+                    >
+                      {ex.name}
+                    </button>
+                  ) : (
+                    <div className="font-semibold text-emerald-400">Unknown exercise</div>
+                  )}
                   <div className="flex flex-wrap gap-x-2 text-xs capitalize">
                     <span className="text-slate-300">{ex?.primaryMuscles.join(', ')}</span>
                     {ex && ex.secondaryMuscles.length > 0 && (
@@ -268,7 +267,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                     ↓
                   </button>
                   <button
-                    onClick={() => removeExercise(re.id)}
+                    onClick={() => removeExercise(re.id, ex?.name ?? 'Unknown exercise')}
                     aria-label="Remove exercise"
                     className="px-2 py-1 text-slate-500 active:text-red-400"
                   >
@@ -369,27 +368,20 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                           : 'bg-slate-800 text-slate-200')
                       }
                     >
-                      {setLabels[i]}
+                      {labels[i]}
                     </button>
 
                     {cols.map((c) => {
                       if (c.key !== 'reps') {
                         const key = c.key;
                         return (
-                          <input
+                          <NumInput
                             key={key}
-                            type="number"
-                            inputMode="decimal"
-                            step={c.step}
-                            placeholder="0"
-                            value={s[key] || ''}
-                            onChange={(e) =>
-                              updateSet(re.id, s.id, {
-                                [key]: num(e.target.value),
-                              } as Partial<WorkoutSet>)
+                            value={s[key]}
+                            decimal={key !== 'seconds'}
+                            onChange={(v) =>
+                              updateSet(re.id, s.id, { [key]: v } as Partial<WorkoutSet>)
                             }
-                            min={0}
-                            onKeyDown={blockMinus}
                             className={inputClass + ' min-w-0'}
                           />
                         );
@@ -406,51 +398,38 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                       }
                       return range ? (
                         <div key="reps" className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            inputMode="numeric"
+                          <NumInput
+                            value={s.reps}
+                            decimal={false}
                             placeholder="8"
-                            value={s.reps || ''}
-                            onChange={(e) => {
-                              const v = num(e.target.value);
+                            onChange={(v) =>
                               updateSet(re.id, s.id, {
                                 reps: v,
                                 ...(s.repsMax !== undefined && v > s.repsMax ? { repsMax: v } : {}),
-                              });
-                            }}
-                            min={0}
-                            onKeyDown={blockMinus}
+                              })
+                            }
                             className={inputClass + ' min-w-0'}
                           />
                           <span className="text-slate-500">–</span>
-                          <input
-                            type="number"
-                            inputMode="numeric"
+                          <NumInput
+                            value={s.repsMax}
+                            decimal={false}
                             placeholder="12"
-                            value={s.repsMax || ''}
-                            onChange={(e) =>
-                              updateSet(re.id, s.id, { repsMax: num(e.target.value) })
-                            }
+                            onChange={(v) => updateSet(re.id, s.id, { repsMax: v })}
                             onBlur={() => {
                               if (s.repsMax !== undefined && s.repsMax > 0 && s.repsMax < s.reps) {
                                 updateSet(re.id, s.id, { repsMax: s.reps });
                               }
                             }}
-                            min={0}
-                            onKeyDown={blockMinus}
                             className={inputClass + ' min-w-0'}
                           />
                         </div>
                       ) : (
-                        <input
+                        <NumInput
                           key="reps"
-                          type="number"
-                          inputMode="numeric"
-                          placeholder="0"
-                          value={s.reps || ''}
-                          onChange={(e) => updateSet(re.id, s.id, { reps: num(e.target.value) })}
-                          min={0}
-                          onKeyDown={blockMinus}
+                          value={s.reps}
+                          decimal={false}
+                          onChange={(v) => updateSet(re.id, s.id, { reps: v })}
                           className={inputClass + ' min-w-0'}
                         />
                       );

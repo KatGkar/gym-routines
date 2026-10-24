@@ -44,14 +44,50 @@ export async function exportBackup(
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+const isStr = (v: unknown) => typeof v === 'string';
+const isNum = (v: unknown) => typeof v === 'number' && Number.isFinite(v);
+
+// Sets only need to be objects with an id; everything else is optional or defaulted
+const validSets = (v: unknown) => Array.isArray(v) && v.every((s) => isObj(s) && isStr(s.id));
+
+const validExercise = (e: unknown) =>
+  isObj(e) && isStr(e.id) && isStr(e.exerciseId) && validSets(e.sets);
+
+const validRoutine = (r: unknown) =>
+  isObj(r) && isStr(r.id) && Array.isArray(r.exercises) && r.exercises.every(validExercise);
+
+const validWorkout = (w: unknown) =>
+  isObj(w) &&
+  isStr(w.id) &&
+  isNum(w.startedAt) &&
+  isNum(w.durationMs) &&
+  Array.isArray(w.exercises) &&
+  w.exercises.every((e) => isObj(e) && validSets(e.sets));
+
+const validCustom = (c: unknown): c is Exercise => isObj(c) && isStr(c.id) && isStr(c.name);
+
+const list = (v: unknown) => (Array.isArray(v) ? v : []);
+
+// Make sure the list fields of a custom exercise are real arrays
+const fillCustom = (c: Exercise): Exercise => ({
+  ...c,
+  primaryMuscles: list(c.primaryMuscles),
+  secondaryMuscles: list(c.secondaryMuscles),
+  instructions: list(c.instructions),
+  images: list(c.images),
+});
+
+// Reads a backup and drops anything malformed, so a bad file can't crash the app
 export function parseBackup(text: string): BackupFile {
   const data = JSON.parse(text);
-  if (!data || data.app !== 'gym-routines' || !Array.isArray(data.routines)) {
+  if (!isObj(data) || data.app !== 'gym-routines' || !Array.isArray(data.routines)) {
     throw new Error('This is not a Gym Routines backup file');
   }
   return {
-    ...data,
-    customExercises: Array.isArray(data.customExercises) ? data.customExercises : [],
-    history: Array.isArray(data.history) ? data.history : [],
+    ...(data as unknown as BackupFile),
+    routines: data.routines.filter(validRoutine),
+    customExercises: list(data.customExercises).filter(validCustom).map(fillCustom),
+    history: list(data.history).filter(validWorkout),
   };
 }

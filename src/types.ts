@@ -62,6 +62,7 @@ export interface WorkoutSession {
   accumulatedMs: number; // time counted before the last resume
   resumedAt: number | null; // null = paused
   exercises: RoutineExercise[];
+  addedIds?: string[]; // exercises added during the workout, not in the routine
 }
 
 export interface FinishedExercise extends RoutineExercise {

@@ -9,29 +9,12 @@ import { useExercises } from './useExercises';
 import { useRoutines } from './useRoutines';
 import { useLocalState } from './useLocalState';
 import { exportBackup, parseBackup } from './backup';
-import { elapsedMs } from './session';
+import { applySessionToRoutine, createSession, elapsedMs } from './session';
 import { uid } from './utils';
 import type { FinishedWorkout, Routine, WorkoutSession } from './types';
 import { CopyIcon, PlayIcon, TrashIcon } from './icons';
 
 type View = 'routines' | 'history' | 'workout';
-
-// A fresh workout copied from a routine, with the timer running
-function newSession(r: Routine): WorkoutSession {
-  const now = Date.now();
-  return {
-    id: uid(),
-    routineId: r.id,
-    routineName: r.name || 'Untitled routine',
-    startedAt: now,
-    accumulatedMs: 0,
-    resumedAt: now,
-    exercises: r.exercises.map((re) => ({
-      ...re,
-      sets: re.sets.map((s) => ({ ...s, id: uid(), done: false })),
-    })),
-  };
-}
 
 function AppInner() {
   const [routines, setRoutines] = useRoutines();
@@ -85,7 +68,7 @@ function AppInner() {
     if (session && !confirm('A workout is already in progress. Discard it and start this one?')) {
       return;
     }
-    setSession(newSession(r));
+    setSession(createSession(r));
     setView('workout');
   };
 
@@ -107,23 +90,7 @@ function AppInner() {
 
       if (mode === 'update') {
         setRoutines((rs) =>
-          rs.map((r) =>
-            r.id !== session.routineId
-              ? r
-              : {
-                  ...r,
-                  // the routine becomes what you did, incl. exercises added, swapped or removed
-                  exercises: session.exercises.map((re) => ({
-                    ...re,
-                    sets: re.sets.map((s) => ({
-                      ...s,
-                      done: undefined,
-                      // AMRAP has no target, so the next workout starts empty again
-                      ...(re.repMode === 'amrap' && s.type === 'normal' ? { reps: 0 } : {}),
-                    })),
-                  })),
-                },
-          ),
+          rs.map((r) => (r.id === session.routineId ? applySessionToRoutine(r, session) : r)),
         );
       }
     }
@@ -138,16 +105,11 @@ function AppInner() {
     try {
       const data = parseBackup(await file.text());
       const haveRoutines = new Set(routines.map((r) => r.id));
-      const newRoutines = data.routines.filter(
-        (r) =>
-          r && typeof r.id === 'string' && Array.isArray(r.exercises) && !haveRoutines.has(r.id),
-      );
+      const newRoutines = data.routines.filter((r) => !haveRoutines.has(r.id));
       const haveCustom = new Set(custom.map((c) => c.id));
-      const newCustom = data.customExercises.filter((c) => c && !haveCustom.has(c.id));
+      const newCustom = data.customExercises.filter((c) => !haveCustom.has(c.id));
       const haveHistory = new Set(history.map((h) => h.id));
-      const newHistory = data.history.filter(
-        (h) => h && typeof h.id === 'string' && !haveHistory.has(h.id),
-      );
+      const newHistory = data.history.filter((h) => !haveHistory.has(h.id));
 
       setRoutines((rs) => [...rs, ...newRoutines]);
       if (newCustom.length) setCustom([...custom, ...newCustom]);
