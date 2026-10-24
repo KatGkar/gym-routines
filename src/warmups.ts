@@ -46,7 +46,10 @@ export function syncAutoWarmups(
     // just switched off: remove the warmups that were added automatically
     return {
       ...next,
-      exercises: next.exercises.map((re) => ({ ...re, sets: re.sets.filter((s) => !isAutoWarmup(s)) })),
+      exercises: next.exercises.map((re) => ({
+        ...re,
+        sets: re.sets.filter((s) => !isAutoWarmup(s)),
+      })),
     };
   }
 

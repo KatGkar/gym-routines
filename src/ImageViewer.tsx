@@ -15,7 +15,7 @@ export default function ImageViewer({ exercise, onClose }: Props) {
       <div className="mx-auto flex w-full max-w-md items-start justify-between gap-3 px-4 pt-6">
         <div>
           <h2 className="text-xl font-bold">{exercise.name}</h2>
-          <div className="text-sm capitalize text-slate-400">
+          <div className="text-sm text-slate-400 capitalize">
             {exercise.primaryMuscles.join(', ')}
             {exercise.equipment ? ` · ${exercise.equipment}` : ''}
           </div>
@@ -30,7 +30,7 @@ export default function ImageViewer({ exercise, onClose }: Props) {
       </div>
 
       <div
-        className="mx-auto w-full max-w-md flex-1 overflow-y-auto px-4 pb-8 pt-4"
+        className="mx-auto w-full max-w-md flex-1 overflow-y-auto px-4 pt-4 pb-8"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="space-y-3">

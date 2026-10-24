@@ -258,7 +258,7 @@ export default function HistoryScreen({ history, onDelete, onBack }: Props) {
                   >
                     <span
                       className={
-                        'absolute right-1 top-0.5 text-[10px] leading-none ' +
+                        'absolute top-0.5 right-1 text-[10px] leading-none ' +
                         (isToday ? 'font-bold text-slate-100' : 'text-slate-400')
                       }
                     >

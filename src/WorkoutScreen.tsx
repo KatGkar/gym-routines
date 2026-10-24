@@ -106,7 +106,7 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
 
   return (
     <div>
-      <div className="sticky top-0 z-10 -mx-4 bg-slate-950/95 px-4 pb-3 pt-1 backdrop-blur">
+      <div className="sticky top-0 z-10 -mx-4 bg-slate-950/95 px-4 pt-1 pb-3 backdrop-blur">
         <div className="mb-1 flex items-center justify-between">
           <button onClick={onMinimize} className="py-1 text-slate-400 active:text-slate-100">
             ← Routines
@@ -181,13 +181,17 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
 
               {re.sets.length > 0 && (
                 <div
-                  className="mb-1 grid gap-2 px-0.5 text-center text-xs uppercase text-slate-500"
+                  className="mb-1 grid gap-2 px-0.5 text-center text-xs text-slate-500 uppercase"
                   style={{ gridTemplateColumns: template }}
                 >
                   <span>Set</span>
                   {cols.map((c) => (
                     <span key={c.key}>
-                      {c.key === 'reps' && range ? 'Range reps' : c.key === 'reps' && amrap ? 'AMRAP' : c.label}
+                      {c.key === 'reps' && range
+                        ? 'Range reps'
+                        : c.key === 'reps' && amrap
+                          ? 'AMRAP'
+                          : c.label}
                     </span>
                   ))}
                   <span>✓</span>
@@ -337,7 +341,7 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-xl font-bold">Finish workout?</h2>
-            <p className="mb-4 mt-1 text-sm text-slate-400">
+            <p className="mt-1 mb-4 text-sm text-slate-400">
               {doneSets}/{totalSets} sets done · {formatDuration(elapsed)}
             </p>
             <div className="space-y-2">

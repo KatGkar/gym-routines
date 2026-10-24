@@ -273,15 +273,15 @@ export default function ExercisePicker({ onPick, onClose }: Props) {
                 >
                   <div className="font-medium">{e.name}</div>
                   <div className="mt-1 flex flex-wrap gap-2 text-xs">
-                    <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 capitalize text-emerald-400">
+                    <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-emerald-400 capitalize">
                       {e.primaryMuscles.join(', ') || 'n/a'}
                     </span>
                     {e.secondaryMuscles.length > 0 && (
-                      <span className="rounded-full bg-sky-500/15 px-2 py-0.5 capitalize text-sky-400">
+                      <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-sky-400 capitalize">
                         {e.secondaryMuscles.join(', ')}
                       </span>
                     )}
-                    <span className="rounded-full bg-slate-800 px-2 py-0.5 capitalize text-slate-400">
+                    <span className="rounded-full bg-slate-800 px-2 py-0.5 text-slate-400 capitalize">
                       {e.equipment ?? 'no equipment'}
                     </span>
                     {e.custom && (

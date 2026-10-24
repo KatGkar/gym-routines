@@ -184,7 +184,7 @@ function AppInner() {
 
   if (view === 'history') {
     return (
-      <div className="mx-auto min-h-screen max-w-md px-4 pb-16 pt-6">
+      <div className="mx-auto min-h-screen max-w-md px-4 pt-6 pb-16">
         <HistoryScreen
           history={history}
           onDelete={(id) => setHistory((h) => h.filter((w) => w.id !== id))}
@@ -195,7 +195,7 @@ function AppInner() {
   }
 
   return (
-    <div className="mx-auto min-h-screen max-w-md px-4 pb-44 pt-6">
+    <div className="mx-auto min-h-screen max-w-md px-4 pt-6 pb-44">
       {open ? (
         <RoutineEditor
           routine={open}
@@ -204,9 +204,9 @@ function AppInner() {
         />
       ) : (
         <>
-        <div className="mb-4 flex justify-center">
+          <div className="mb-4 flex justify-center">
             <img
-            src={import.meta.env.BASE_URL + 'logo.svg'}
+              src={import.meta.env.BASE_URL + 'logo.svg'}
               alt="Routines"
               className="w-72 max-w-full"
             />
@@ -303,15 +303,16 @@ function AppInner() {
             })}
           </ul>
 
-          <div className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-slate-950 via-slate-950/95 to-transparent px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-8">
+          <div className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-slate-950 via-slate-950/95 to-transparent px-4 pt-8 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <button
               onClick={createRoutine}
               className="mx-auto block w-full max-w-md rounded-2xl bg-emerald-500 py-4 text-base font-semibold text-slate-950 active:bg-emerald-400"
             >
               New routine
             </button>
-                        <p className="mx-auto mt-2 max-w-md text-center text-[11px] leading-tight text-slate-500">
-              {' '}Exercises:{' '}
+            <p className="mx-auto mt-2 max-w-md text-center text-[11px] leading-tight text-slate-500">
+              {' '}
+              Exercises:{' '}
               <a
                 href="https://github.com/yuhonas/free-exercise-db"
                 target="_blank"
