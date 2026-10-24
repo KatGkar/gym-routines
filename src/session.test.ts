@@ -96,4 +96,31 @@ describe('applySessionToRoutine', () => {
     const out = applySessionToRoutine(routine, baseSession([ex('zzz', [set('n1')])]));
     expect(out.exercises.map((e) => e.id)).toEqual(['a', 'b', 'c']);
   });
+
+  it('adds exercises that were added during the workout', () => {
+    const session = {
+      ...baseSession([ex('a', [set('n1')]), ex('new', [set('n2')])]),
+      addedIds: ['new'],
+    };
+    const out = applySessionToRoutine(routine, session);
+    expect(out.exercises.map((e) => e.id)).toEqual(['a', 'new', 'b', 'c']);
+  });
+
+  it('takes the new exercise from a swap, with its notes', () => {
+    const session = baseSession([{ ...ex('a', [set('n1')]), exerciseId: 'other' }]);
+    const out = applySessionToRoutine(routine, session);
+    expect(out.exercises[0]).toMatchObject({ id: 'a', exerciseId: 'other', kind: 'timed' });
+    expect(out.exercises[0].notes).toBeUndefined();
+  });
+
+  it('does not keep AMRAP reps as a target', () => {
+    const session = baseSession([
+      {
+        ...ex('b', [set('w', { type: 'warmup', reps: 10 }), set('n1', { reps: 15 })]),
+        repMode: 'amrap',
+      },
+    ]);
+    const out = applySessionToRoutine(routine, session);
+    expect(out.exercises[0].sets.map((s) => s.reps)).toEqual([10, 0]);
+  });
 });

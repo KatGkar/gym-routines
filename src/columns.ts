@@ -1,4 +1,11 @@
-import type { CardioField, RoutineExercise, SetType, WorkoutSet } from './types';
+import type {
+  CardioField,
+  Exercise,
+  ExerciseKind,
+  RoutineExercise,
+  SetType,
+  WorkoutSet,
+} from './types';
 import { uid } from './utils';
 
 export type NumKey = 'weightKg' | 'seconds' | 'minutes' | 'distanceKm' | 'speedKmh' | 'inclinePct';
@@ -26,11 +33,20 @@ export const CARDIO_ORDER: CardioField[] = [
 ];
 export const DEFAULT_CARDIO: CardioField[] = ['minutes', 'distanceKm'];
 
+// What type a newly added exercise starts as, based on its database category
+export const defaultKind = (e: Exercise): ExerciseKind => {
+  if (e.category === 'cardio') return 'cardio';
+  if (e.category === 'stretching') return 'timed';
+  if (e.category === 'plyometrics') return 'bodyweight';
+  return 'strength';
+};
+
 export const usesReps = (re: RoutineExercise) => {
   const k = re.kind ?? 'strength';
   return k === 'strength' || k === 'bodyweight';
 };
 export const isRange = (re: RoutineExercise) => usesReps(re) && re.repMode === 'range';
+export const isAmrap = (re: RoutineExercise) => usesReps(re) && re.repMode === 'amrap';
 
 export function getCols(re: RoutineExercise): ColDef[] {
   const kind = re.kind ?? 'strength';
@@ -52,9 +68,11 @@ export function gridTemplate(re: RoutineExercise, lastCol: string): string {
 // Text summary of one set, used in the history
 export function formatSet(re: RoutineExercise, s: WorkoutSet): string {
   const range = isRange(re);
+  const amrap = isAmrap(re);
   return getCols(re)
     .map((c) => {
       if (c.key === 'reps') {
+        if (amrap) return s.reps ? `${s.reps} reps (AMRAP)` : 'AMRAP';
         return range && s.repsMax ? `${s.reps}–${s.repsMax} reps` : `${s.reps} reps`;
       }
       return `${s[c.key] ?? 0} ${c.label}`;
@@ -75,7 +93,8 @@ export function blankSet(re: RoutineExercise, type: SetType): WorkoutSet {
     id: uid(),
     type,
     weightKg: 0,
-    reps: reps ? 10 : 0,
+    // AMRAP working sets have no target, you fill in what you did
+    reps: reps && !(isAmrap(re) && type === 'normal') ? 10 : 0,
     ...(re.kind === 'timed' ? { seconds: 30 } : {}),
     ...(isRange(re) ? { repsMax: 12 } : {}),
   };

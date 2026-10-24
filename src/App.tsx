@@ -131,6 +131,7 @@ function AppInner() {
       <div className="mx-auto min-h-screen max-w-md px-4 pt-6">
         <WorkoutScreen
           session={session}
+          history={history}
           onChange={setSession}
           onMinimize={() => setView('routines')}
           onFinish={finishWorkout}

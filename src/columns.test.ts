@@ -90,3 +90,17 @@ describe('blankSet', () => {
     expect(a.done).toBeUndefined();
   });
 });
+
+describe('AMRAP', () => {
+  const amrap = ex({ kind: 'bodyweight', repMode: 'amrap' });
+
+  it('shows the reps done, or just AMRAP when none were filled in', () => {
+    expect(formatSet(amrap, set({ reps: 15 }))).toBe('15 reps (AMRAP)');
+    expect(formatSet(amrap, set({ reps: 0 }))).toBe('AMRAP');
+  });
+
+  it('starts working sets empty but warmups at 10 reps', () => {
+    expect(blankSet(amrap, 'normal').reps).toBe(0);
+    expect(blankSet(amrap, 'warmup').reps).toBe(10);
+  });
+});

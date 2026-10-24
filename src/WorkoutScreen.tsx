@@ -1,17 +1,35 @@
 import { useEffect, useState } from 'react';
+import ExercisePicker from './ExercisePicker';
 import { imageUrl } from './exercises';
 import { useExercises } from './useExercises';
-import { blankSet, getCols, gridTemplate, isRange, setLabels } from './columns';
+import {
+  blankSet,
+  defaultKind,
+  formatSet,
+  getCols,
+  gridTemplate,
+  isAmrap,
+  isRange,
+  setLabels,
+} from './columns';
 import ImageViewer from './ImageViewer';
 import NumInput from './NumInput';
 import { elapsedMs, formatDuration } from './session';
 import { uid } from './utils';
-import type { Exercise, RoutineExercise, WorkoutSession, WorkoutSet } from './types';
+import type {
+  Exercise,
+  FinishedExercise,
+  FinishedWorkout,
+  RoutineExercise,
+  WorkoutSession,
+  WorkoutSet,
+} from './types';
 
 export type FinishMode = 'save' | 'update' | 'discard';
 
 interface Props {
   session: WorkoutSession;
+  history: FinishedWorkout[];
   onChange: (s: WorkoutSession) => void;
   onMinimize: () => void;
   onFinish: (mode: FinishMode) => void;
@@ -20,11 +38,35 @@ interface Props {
 const inputClass =
   'w-full min-w-0 rounded-lg bg-slate-800 px-2 py-2 text-center text-base text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500';
 
-export default function WorkoutScreen({ session, onChange, onMinimize, onFinish }: Props) {
+// This exercise in the most recent saved workout where at least one of its sets was done
+const previousOf = (
+  re: Pick<RoutineExercise, 'id' | 'exerciseId'>,
+  history: FinishedWorkout[],
+): FinishedExercise | undefined => {
+  for (const w of history) {
+    const prev =
+      w.exercises.find((x) => x.id === re.id && x.exerciseId === re.exerciseId) ??
+      w.exercises.find((x) => x.exerciseId === re.exerciseId);
+    if (prev?.sets.some((s) => s.done)) return prev;
+  }
+  return undefined;
+};
+
+// The matching done set from last time: the nth warmup for a warmup, the nth working set otherwise
+const previousSet = (prev: FinishedExercise | undefined, sets: WorkoutSet[], i: number) => {
+  const type = sets[i].type;
+  const n = sets.slice(0, i).filter((s) => s.type === type).length;
+  const match = prev?.sets.filter((s) => s.type === type)[n];
+  return match?.done ? match : undefined;
+};
+
+export default function WorkoutScreen({ session, history, onChange, onMinimize, onFinish }: Props) {
   const { byId } = useExercises();
   const [now, setNow] = useState(() => Date.now());
   const [finishing, setFinishing] = useState(false);
   const [viewing, setViewing] = useState<Exercise | null>(null);
+  // null = closed, 'add' = add a new exercise, otherwise the id of the exercise to swap
+  const [picking, setPicking] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -59,7 +101,15 @@ export default function WorkoutScreen({ session, onChange, onMinimize, onFinish 
         ...re,
         sets: [
           ...re.sets,
-          last ? { ...last, id: uid(), done: false } : { ...blankSet(re, 'normal'), done: false },
+          last
+            ? {
+                ...last,
+                id: uid(),
+                done: false,
+                // AMRAP has no target, the next set starts empty again
+                ...(isAmrap(re) && last.type === 'normal' ? { reps: 0 } : {}),
+              }
+            : { ...blankSet(re, 'normal'), done: false },
         ],
       };
     });
@@ -72,6 +122,63 @@ export default function WorkoutScreen({ session, onChange, onMinimize, onFinish 
       const allDone = re.sets.length > 0 && re.sets.every((s) => s.done);
       return { ...re, sets: re.sets.map((s) => ({ ...s, done: !allDone })) };
     });
+
+  // Copy last time's values into a set (only the fields this exercise shows)
+  const copyPrevious = (re: RoutineExercise, setId: string, prev: WorkoutSet) =>
+    patchSet(
+      re.id,
+      setId,
+      Object.fromEntries(
+        getCols(re).flatMap((c) =>
+          c.key === 'reps'
+            ? [
+                ['reps', prev.reps],
+                ['repsMax', prev.repsMax],
+              ]
+            : [[c.key, prev[c.key]]],
+        ),
+      ),
+    );
+
+  // A new exercise starts with the sets done last time, or one empty set
+  const addExercise = (e: Exercise) => {
+    const id = uid();
+    const prev = previousOf({ id, exerciseId: e.id }, history);
+    const base: RoutineExercise = prev
+      ? {
+          id,
+          exerciseId: e.id,
+          kind: prev.kind,
+          repMode: prev.repMode,
+          cardioFields: prev.cardioFields,
+          sets: [],
+        }
+      : { id, exerciseId: e.id, kind: defaultKind(e), sets: [] };
+    const sets = prev
+      ? prev.sets.map((s) => ({ ...s, id: uid(), done: false }))
+      : [{ ...blankSet(base, 'normal'), done: false }];
+    onChange({
+      ...session,
+      exercises: [...session.exercises, { ...base, sets }],
+      addedIds: [...(session.addedIds ?? []), id],
+    });
+  };
+
+  // Swap is a like-for-like replacement (e.g. the machine is taken): keep the type and sets,
+  // but the notes were for the old exercise
+  const swapExercise = (reId: string, e: Exercise) =>
+    updateExercise(reId, (re) => ({ ...re, exerciseId: e.id, notes: undefined }));
+
+  const removeExercise = (re: RoutineExercise) => {
+    if (re.sets.some((s) => s.done) && !confirm('Remove this exercise and its done sets?')) return;
+    onChange({ ...session, exercises: session.exercises.filter((x) => x.id !== re.id) });
+  };
+
+  const pick = (e: Exercise) => {
+    if (picking === 'add') addExercise(e);
+    else if (picking) swapExercise(picking, e);
+    setPicking(null);
+  };
 
   const moveExercise = (index: number, dir: -1 | 1) => {
     const target = index + dir;
@@ -131,6 +238,8 @@ export default function WorkoutScreen({ session, onChange, onMinimize, onFinish 
           const ex = byId.get(re.exerciseId);
           const cols = getCols(re);
           const range = isRange(re);
+          const amrap = isAmrap(re);
+          const prev = previousOf(re, history);
           const template = gridTemplate(re, '2.75rem');
           const labels = setLabels(re.sets);
           const allDone = re.sets.length > 0 && re.sets.every((s) => s.done);
@@ -167,6 +276,19 @@ export default function WorkoutScreen({ session, onChange, onMinimize, onFinish 
                   {re.notes && <div className="text-xs text-slate-400">{re.notes}</div>}
                 </div>
                 <button
+                  onClick={() => setPicking(re.id)}
+                  className="shrink-0 px-1 py-1 text-xs font-medium text-slate-400 active:text-slate-100"
+                >
+                  Swap
+                </button>
+                <button
+                  onClick={() => removeExercise(re)}
+                  aria-label="Remove exercise"
+                  className="shrink-0 px-1 py-1 text-slate-500 active:text-red-400"
+                >
+                  ✕
+                </button>
+                <button
                   onClick={() => toggleAll(re.id)}
                   disabled={re.sets.length === 0}
                   aria-label={allDone ? 'Mark all sets not done' : 'Mark all sets done'}
@@ -186,96 +308,127 @@ export default function WorkoutScreen({ session, onChange, onMinimize, onFinish 
                 >
                   <span>Set</span>
                   {cols.map((c) => (
-                    <span key={c.key}>{c.key === 'reps' && range ? 'Range reps' : c.label}</span>
+                    <span key={c.key}>
+                      {c.key === 'reps' && range
+                        ? 'Range reps'
+                        : c.key === 'reps' && amrap
+                          ? 'AMRAP'
+                          : c.label}
+                    </span>
                   ))}
                   <span>✓</span>
                 </div>
               )}
 
               <div className="space-y-2">
-                {re.sets.map((s, i) => (
-                  <div
-                    key={s.id}
-                    className={'grid items-center gap-2 ' + (s.done ? 'opacity-60' : '')}
-                    style={{ gridTemplateColumns: template }}
-                  >
-                    <div
-                      className={
-                        'flex h-10 items-center justify-center rounded-lg font-semibold ' +
-                        (s.type === 'warmup'
-                          ? 'bg-amber-500/20 text-amber-400'
-                          : 'bg-slate-800 text-slate-200')
-                      }
-                    >
-                      {labels[i]}
-                    </div>
-
-                    {cols.map((c) => {
-                      if (c.key !== 'reps') {
-                        const key = c.key;
-                        return (
-                          <NumInput
-                            key={key}
-                            value={s[key]}
-                            decimal={key !== 'seconds'}
-                            onChange={(v) =>
-                              patchSet(re.id, s.id, { [key]: v } as Partial<WorkoutSet>)
-                            }
-                            className={inputClass}
-                          />
-                        );
-                      }
-                      return range ? (
-                        <div key="reps" className="flex items-center gap-1">
-                          <NumInput
-                            value={s.reps}
-                            decimal={false}
-                            placeholder="8"
-                            onChange={(v) =>
-                              patchSet(re.id, s.id, {
-                                reps: v,
-                                ...(s.repsMax !== undefined && v > s.repsMax ? { repsMax: v } : {}),
-                              })
-                            }
-                            className={inputClass}
-                          />
-                          <span className="text-slate-500">–</span>
-                          <NumInput
-                            value={s.repsMax}
-                            decimal={false}
-                            placeholder="12"
-                            onChange={(v) => patchSet(re.id, s.id, { repsMax: v })}
-                            onBlur={() => {
-                              if (s.repsMax !== undefined && s.repsMax > 0 && s.repsMax < s.reps) {
-                                patchSet(re.id, s.id, { repsMax: s.reps });
-                              }
-                            }}
-                            className={inputClass}
-                          />
+                {re.sets.map((s, i) => {
+                  const last = previousSet(prev, re.sets, i);
+                  // AMRAP working sets show last time's reps inside the box instead
+                  const amrapSet = amrap && s.type === 'normal';
+                  return (
+                    <div key={s.id} className={s.done ? 'opacity-60' : ''}>
+                      <div
+                        className="grid items-center gap-2"
+                        style={{ gridTemplateColumns: template }}
+                      >
+                        <div
+                          className={
+                            'flex h-10 items-center justify-center rounded-lg font-semibold ' +
+                            (s.type === 'warmup'
+                              ? 'bg-amber-500/20 text-amber-400'
+                              : 'bg-slate-800 text-slate-200')
+                          }
+                        >
+                          {labels[i]}
                         </div>
-                      ) : (
-                        <NumInput
-                          key="reps"
-                          value={s.reps}
-                          decimal={false}
-                          onChange={(v) => patchSet(re.id, s.id, { reps: v })}
-                          className={inputClass}
-                        />
-                      );
-                    })}
 
-                    <button
-                      onClick={() => patchSet(re.id, s.id, { done: !s.done })}
-                      aria-label={s.done ? 'Mark set not done' : 'Mark set done'}
-                      className={
-                        'h-10 rounded-lg text-lg font-bold ' +
-                        (s.done ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-600')
-                      }
-                    >
-                      ✓
-                    </button>
-                  </div>
-                ))}
+                        {cols.map((c) => {
+                          if (c.key !== 'reps') {
+                            const key = c.key;
+                            return (
+                              <NumInput
+                                key={key}
+                                value={s[key]}
+                                decimal={key !== 'seconds'}
+                                onChange={(v) =>
+                                  patchSet(re.id, s.id, { [key]: v } as Partial<WorkoutSet>)
+                                }
+                                className={inputClass}
+                              />
+                            );
+                          }
+                          return range ? (
+                            <div key="reps" className="flex items-center gap-1">
+                              <NumInput
+                                value={s.reps}
+                                decimal={false}
+                                placeholder="8"
+                                onChange={(v) =>
+                                  patchSet(re.id, s.id, {
+                                    reps: v,
+                                    ...(s.repsMax !== undefined && v > s.repsMax
+                                      ? { repsMax: v }
+                                      : {}),
+                                  })
+                                }
+                                className={inputClass}
+                              />
+                              <span className="text-slate-500">–</span>
+                              <NumInput
+                                value={s.repsMax}
+                                decimal={false}
+                                placeholder="12"
+                                onChange={(v) => patchSet(re.id, s.id, { repsMax: v })}
+                                onBlur={() => {
+                                  if (
+                                    s.repsMax !== undefined &&
+                                    s.repsMax > 0 &&
+                                    s.repsMax < s.reps
+                                  ) {
+                                    patchSet(re.id, s.id, { repsMax: s.reps });
+                                  }
+                                }}
+                                className={inputClass}
+                              />
+                            </div>
+                          ) : (
+                            <NumInput
+                              key="reps"
+                              value={s.reps}
+                              decimal={false}
+                              placeholder={
+                                amrapSet ? (last?.reps ? `last ${last.reps}` : 'max') : '0'
+                              }
+                              onChange={(v) => patchSet(re.id, s.id, { reps: v })}
+                              className={inputClass}
+                            />
+                          );
+                        })}
+
+                        <button
+                          onClick={() => patchSet(re.id, s.id, { done: !s.done })}
+                          aria-label={s.done ? 'Mark set not done' : 'Mark set done'}
+                          className={
+                            'h-10 rounded-lg text-lg font-bold ' +
+                            (s.done
+                              ? 'bg-emerald-500 text-slate-950'
+                              : 'bg-slate-800 text-slate-600')
+                          }
+                        >
+                          ✓
+                        </button>
+                      </div>
+                      {last && !amrapSet && (
+                        <button
+                          onClick={() => copyPrevious(re, s.id, last)}
+                          className="mt-0.5 block pl-12 text-left text-[11px] text-slate-500 active:text-slate-300"
+                        >
+                          Last: {formatSet(prev!, last)}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
 
               <div className="mt-3 flex gap-2">
@@ -313,7 +466,22 @@ export default function WorkoutScreen({ session, onChange, onMinimize, onFinish 
             </section>
           );
         })}
+
+        <button
+          onClick={() => setPicking('add')}
+          className="w-full rounded-2xl bg-slate-900 py-4 text-base font-semibold text-emerald-400 ring-1 ring-slate-800 active:bg-slate-800"
+        >
+          + Add exercise
+        </button>
       </div>
+
+      {picking && (
+        <ExercisePicker
+          title={picking === 'add' ? 'Add exercise' : 'Swap exercise'}
+          onPick={pick}
+          onClose={() => setPicking(null)}
+        />
+      )}
 
       {finishing && (
         <div

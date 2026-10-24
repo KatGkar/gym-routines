@@ -30,11 +30,27 @@ export function createSession(r: Routine): WorkoutSession {
   };
 }
 
-// "Save and update routine": take the order and sets from the session, keep the rest
+// "Save and update routine": take the order and sets from the session, keep the rest.
+// Exercises added during the workout join the routine, swapped ones take the new exercise.
 export function applySessionToRoutine(r: Routine, session: WorkoutSession): Routine {
+  const added = new Set(session.addedIds ?? []);
   const fromSession = session.exercises.flatMap((used) => {
-    const re = r.exercises.find((x) => x.id === used.id);
-    return re ? [{ ...re, sets: used.sets.map((s) => ({ ...s, done: undefined })) }] : [];
+    const re = r.exercises.find((x) => x.id === used.id) ?? (added.has(used.id) ? used : null);
+    if (!re) return [];
+    const swapped = used.exerciseId !== re.exerciseId;
+    const sets = used.sets.map((s) => ({
+      ...s,
+      done: undefined,
+      // AMRAP has no target, so the next workout starts empty again
+      ...(used.repMode === 'amrap' && s.type === 'normal' ? { reps: 0 } : {}),
+    }));
+    return [
+      {
+        ...re,
+        ...(swapped ? { exerciseId: used.exerciseId, notes: used.notes } : {}),
+        sets,
+      },
+    ];
   });
   const sessionIds = new Set(session.exercises.map((x) => x.id));
   const rest = r.exercises.filter((x) => !sessionIds.has(x.id));

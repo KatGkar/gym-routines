@@ -19,6 +19,8 @@ export type ExerciseKind = 'strength' | 'bodyweight' | 'timed' | 'cardio';
 
 export type CardioField = 'weightKg' | 'minutes' | 'distanceKm' | 'speedKmh' | 'inclinePct';
 
+export type RepMode = 'fixed' | 'range' | 'amrap'; // amrap = as many as possible
+
 export interface WorkoutSet {
   id: string;
   type: SetType;
@@ -31,6 +33,7 @@ export interface WorkoutSet {
   speedKmh?: number;
   inclinePct?: number;
   done?: boolean;
+  auto?: boolean; // warmup added automatically by the routine editor
 }
 
 export interface RoutineExercise {
@@ -38,7 +41,7 @@ export interface RoutineExercise {
   exerciseId: string;
   sets: WorkoutSet[];
   notes?: string;
-  repMode?: 'fixed' | 'range';
+  repMode?: RepMode;
   kind?: ExerciseKind;
   cardioFields?: CardioField[];
 }
@@ -47,6 +50,7 @@ export interface Routine {
   id: string;
   name: string;
   exercises: RoutineExercise[];
+  autoWarmup?: boolean; // add 2 warmups for each new primary muscle (default on)
 }
 
 // A workout in progress (a copy of a routine with done flags)
@@ -58,6 +62,7 @@ export interface WorkoutSession {
   accumulatedMs: number; // time counted before the last resume
   resumedAt: number | null; // null = paused
   exercises: RoutineExercise[];
+  addedIds?: string[]; // exercises added during the workout, not in the routine
 }
 
 export interface FinishedExercise extends RoutineExercise {
