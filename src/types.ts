@@ -44,7 +44,11 @@ export interface RoutineExercise {
   repMode?: RepMode;
   kind?: ExerciseKind;
   cardioFields?: CardioField[];
+  alternatives?: ExerciseSetup[]; // saved swaps, e.g. for when the machine is taken
 }
+
+// One exercise with its own values, so a routine exercise can keep alternatives to swap to
+export type ExerciseSetup = Omit<RoutineExercise, 'id' | 'alternatives'>;
 
 export interface Routine {
   id: string;

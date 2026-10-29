@@ -14,7 +14,7 @@ import {
 } from './columns';
 import ImageViewer from './ImageViewer';
 import NumInput from './NumInput';
-import { elapsedMs, formatDuration } from './session';
+import { elapsedMs, formatDuration, swapTo } from './session';
 import { uid } from './utils';
 import { UndoIcon } from './icons';
 import { setEditKey, useUndo } from './useUndo';
@@ -184,10 +184,10 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
     });
   };
 
-  // Swap is a like-for-like replacement (e.g. the machine is taken): keep the type and sets,
-  // but the notes were for the old exercise
-  const swapExercise = (reId: string, e: Exercise) =>
-    updateExercise(reId, (re) => ({ ...re, exerciseId: e.id, notes: undefined }));
+  // Swap is for when the machine is taken. The old exercise is kept to swap back to,
+  // and on finish the routine saves the new one as an alternative
+  const swapExercise = (reId: string, exerciseId: string) =>
+    updateExercise(reId, (re) => swapTo(re, exerciseId));
 
   const removeExercise = (re: RoutineExercise) => {
     if (re.sets.some((s) => s.done) && !confirm('Remove this exercise and its done sets?')) return;
@@ -196,7 +196,7 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
 
   const pick = (e: Exercise) => {
     if (picking === 'add') addExercise(e);
-    else if (picking) swapExercise(picking, e);
+    else if (picking) swapExercise(picking, e.id);
     setPicking(null);
   };
 
@@ -304,6 +304,20 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
                     <div className="font-semibold text-emerald-400">Unknown exercise</div>
                   )}
                   {re.notes && <div className="text-xs text-slate-400">{re.notes}</div>}
+                  {re.alternatives && re.alternatives.length > 0 && (
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      <span className="text-xs text-slate-500">Swap to</span>
+                      {re.alternatives.map((a) => (
+                        <button
+                          key={a.exerciseId}
+                          onClick={() => swapExercise(re.id, a.exerciseId)}
+                          className="rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-200 active:bg-slate-700"
+                        >
+                          ⇄ {byId.get(a.exerciseId)?.name ?? 'Unknown exercise'}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={() => setPicking(re.id)}

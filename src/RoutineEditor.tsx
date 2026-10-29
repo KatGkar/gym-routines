@@ -19,6 +19,7 @@ import { uid } from './utils';
 import { PencilIcon, UndoIcon } from './icons';
 import { setEditKey, useUndo } from './useUndo';
 import { autoWarmupOn, syncAutoWarmups } from './warmups';
+import { setupOf } from './session';
 
 import type {
   CardioField,
@@ -80,7 +81,8 @@ const Chevron = () => (
 
 export default function RoutineEditor({ routine, onChange, onBack }: Props) {
   const { byId } = useExercises();
-  const [picking, setPicking] = useState(false);
+  // null = closed, 'add' = add a new exercise, otherwise the id of the exercise to add an alternative to
+  const [picking, setPicking] = useState<string | null>(null);
   const [viewing, setViewing] = useState<Exercise | null>(null);
 
   const { change, undo, canUndo } = useUndo(routine, onChange);
@@ -110,7 +112,38 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
         { id: uid(), exerciseId: e.id, sets: [], kind: defaultKind(e) },
       ],
     });
-    setPicking(false);
+    setPicking(null);
+  };
+
+  // An alternative starts as a copy of the exercise's setup, like a swap in a workout
+  const addAlternative = (reId: string, e: Exercise) =>
+    updateExercise(reId, (re) =>
+      re.exerciseId === e.id || re.alternatives?.some((a) => a.exerciseId === e.id)
+        ? re
+        : {
+            ...re,
+            alternatives: [
+              ...(re.alternatives ?? []),
+              {
+                ...setupOf(re),
+                exerciseId: e.id,
+                notes: undefined,
+                sets: re.sets.map((s) => ({ ...s, id: uid() })),
+              },
+            ],
+          },
+    );
+
+  const removeAlternative = (reId: string, exerciseId: string) =>
+    updateExercise(reId, (re) => {
+      const left = re.alternatives?.filter((a) => a.exerciseId !== exerciseId) ?? [];
+      return { ...re, alternatives: left.length ? left : undefined };
+    });
+
+  const pick = (e: Exercise) => {
+    if (picking === 'add') addExercise(e);
+    else if (picking) addAlternative(picking, e);
+    setPicking(null);
   };
 
   const removeExercise = (id: string, name: string) => {
@@ -181,7 +214,13 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
     }));
 
   if (picking) {
-    return <ExercisePicker onPick={addExercise} onClose={() => setPicking(false)} />;
+    return (
+      <ExercisePicker
+        title={picking === 'add' ? 'Add exercise' : 'Add alternative'}
+        onPick={pick}
+        onClose={() => setPicking(null)}
+      />
+    );
   }
 
   return (
@@ -310,6 +349,34 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
                 rows={2}
                 className="mb-3 w-full resize-none rounded-lg bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
+
+              <div className="mb-3 flex flex-wrap items-center gap-1">
+                <span className="text-xs text-slate-500">Alternatives</span>
+                {re.alternatives?.map((a) => {
+                  const name = byId.get(a.exerciseId)?.name ?? 'Unknown exercise';
+                  return (
+                    <span
+                      key={a.exerciseId}
+                      className="flex items-center rounded-full bg-slate-800 pl-2 text-xs text-slate-200"
+                    >
+                      {name}
+                      <button
+                        onClick={() => removeAlternative(re.id, a.exerciseId)}
+                        aria-label={`Remove alternative ${name}`}
+                        className="px-2 py-0.5 text-slate-500 active:text-red-400"
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  );
+                })}
+                <button
+                  onClick={() => setPicking(re.id)}
+                  className="rounded-full px-2 py-0.5 text-xs font-medium text-emerald-400 active:text-emerald-500"
+                >
+                  + Alternative
+                </button>
+              </div>
 
               <div className="mb-3">
                 <label className="relative inline-flex items-center gap-1 text-xs text-slate-500 uppercase">
@@ -495,7 +562,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
       </div>
 
       <button
-        onClick={() => setPicking(true)}
+        onClick={() => setPicking('add')}
         className="mt-6 w-full rounded-2xl bg-emerald-500 py-4 text-base font-semibold text-slate-950 active:bg-emerald-400"
       >
         Add exercise

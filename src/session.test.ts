@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { applySessionToRoutine, createSession, elapsedMs, formatDuration } from './session';
+import {
+  applySessionToRoutine,
+  createSession,
+  elapsedMs,
+  formatDuration,
+  saveNewAlternatives,
+  swapTo,
+} from './session';
 import type { Routine, RoutineExercise, WorkoutSession, WorkoutSet } from './types';
 
 const set = (id: string, patch: Partial<WorkoutSet> = {}): WorkoutSet => ({
@@ -106,11 +113,18 @@ describe('applySessionToRoutine', () => {
     expect(out.exercises.map((e) => e.id)).toEqual(['a', 'new', 'b', 'c']);
   });
 
-  it('takes the new exercise from a swap, with its notes', () => {
-    const session = baseSession([{ ...ex('a', [set('n1')]), exerciseId: 'other' }]);
-    const out = applySessionToRoutine(routine, session);
-    expect(out.exercises[0]).toMatchObject({ id: 'a', exerciseId: 'other', kind: 'timed' });
-    expect(out.exercises[0].notes).toBeUndefined();
+  it('keeps the routine exercise after a swap and saves the swap as an alternative', () => {
+    const used = swapTo(createSession(routine).exercises[0], 'other');
+    const session = baseSession([
+      { ...used, sets: [set('n1', { reps: 6, done: true })] },
+      ...routine.exercises.slice(1),
+    ]);
+    const out = applySessionToRoutine(routine, session).exercises[0];
+    expect(out).toMatchObject({ id: 'a', exerciseId: 'x-a', notes: 'seat 4', kind: 'timed' });
+    expect(out.sets[0].reps).toBe(10);
+    expect(out.alternatives).toHaveLength(1);
+    expect(out.alternatives?.[0]).toMatchObject({ exerciseId: 'other', kind: 'timed' });
+    expect(out.alternatives?.[0].sets.map((s) => [s.reps, s.done])).toEqual([[6, undefined]]);
   });
 
   it('does not keep AMRAP reps as a target', () => {
@@ -122,5 +136,44 @@ describe('applySessionToRoutine', () => {
     ]);
     const out = applySessionToRoutine(routine, session);
     expect(out.exercises[0].sets.map((s) => s.reps)).toEqual([10, 0]);
+  });
+});
+
+describe('swapTo', () => {
+  const start = { ...ex('a', [set('s1', { reps: 5 })]), notes: 'seat 4' };
+
+  it('keeps the current sets for a new exercise, and the old one as an alternative', () => {
+    const out = swapTo(start, 'other');
+    expect(out).toMatchObject({ id: 'a', exerciseId: 'other', notes: undefined });
+    expect(out.sets[0].reps).toBe(5);
+    expect(out.alternatives?.map((x) => [x.exerciseId, x.notes])).toEqual([['x-a', 'seat 4']]);
+  });
+
+  it('brings back a saved alternative with its own values', () => {
+    const r = { ...start, alternatives: [{ exerciseId: 'alt', sets: [set('t1', { reps: 12 })] }] };
+    const out = swapTo(r, 'alt');
+    expect(out.exerciseId).toBe('alt');
+    expect(out.sets.map((s) => [s.reps, s.done])).toEqual([[12, false]]);
+    expect(out.alternatives?.map((x) => x.exerciseId)).toEqual(['x-a']);
+    expect(swapTo(out, 'x-a')).toMatchObject({ exerciseId: 'x-a', notes: 'seat 4' });
+  });
+});
+
+describe('saveNewAlternatives', () => {
+  it('adds exercises swapped to for the first time and keeps the rest of the routine', () => {
+    const alt = { exerciseId: 'alt', sets: [set('t1', { reps: 12 })] };
+    const routine: Routine = {
+      id: 'r1',
+      name: '',
+      exercises: [{ ...ex('a', [set('a1')]), alternatives: [alt] }, ex('b', [set('b1')])],
+    };
+    const session = createSession(routine);
+    const used = swapTo(swapTo(session.exercises[0], 'alt'), 'new');
+    const out = saveNewAlternatives(routine, { ...session, exercises: [used] });
+    expect(out.exercises[0].exerciseId).toBe('x-a');
+    expect(out.exercises[0].sets).toEqual(routine.exercises[0].sets);
+    expect(out.exercises[0].alternatives?.map((x) => x.exerciseId)).toEqual(['alt', 'new']);
+    expect(out.exercises[0].alternatives?.[0]).toBe(alt);
+    expect(out.exercises[1]).toBe(routine.exercises[1]);
   });
 });
