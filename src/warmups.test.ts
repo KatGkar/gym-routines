@@ -5,12 +5,17 @@ import type { Exercise, Routine, RoutineExercise } from './types';
 const byId = new Map(
   (
     [
-      ['bench', ['chest']],
-      ['fly', ['chest']],
-      ['crunch', ['abdominals']],
-      ['run', ['quadriceps']],
+      ['bench', ['chest'], ['shoulders', 'triceps']],
+      ['fly', ['chest'], []],
+      ['press', ['shoulders'], ['triceps']],
+      ['crunch', ['abdominals'], []],
+      ['run', ['quadriceps'], []],
+      ['squat', ['quadriceps'], []],
     ] as const
-  ).map(([id, muscles]) => [id, { id, primaryMuscles: [...muscles] } as unknown as Exercise]),
+  ).map(([id, primary, secondary]) => [
+    id,
+    { id, primaryMuscles: [...primary], secondaryMuscles: [...secondary] } as unknown as Exercise,
+  ]),
 );
 const ex = (id: string, patch: Partial<RoutineExercise> = {}): RoutineExercise => ({
   id,
@@ -38,6 +43,24 @@ const build = (ids: string[]) =>
 describe('syncAutoWarmups', () => {
   it('gives 2 warmups to the first exercise of each primary muscle', () => {
     expect(warmups(build(['bench', 'fly', 'crunch']))).toEqual([2, 0, 2]);
+  });
+
+  it('skips muscles an earlier exercise already worked as a secondary muscle', () => {
+    expect(warmups(build(['bench', 'press', 'crunch']))).toEqual([2, 0, 2]);
+  });
+
+  it('counts muscles from bodyweight exercises but not from cardio', () => {
+    const r = syncAutoWarmups(
+      routine([]),
+      routine([
+        ex('fly', { kind: 'bodyweight' }),
+        ex('bench'),
+        ex('run', { kind: 'cardio' }),
+        ex('squat'),
+      ]),
+      byId,
+    );
+    expect(warmups(r)).toEqual([0, 0, 0, 2]);
   });
 
   it('starts warmups at half the working weight', () => {

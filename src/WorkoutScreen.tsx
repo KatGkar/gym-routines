@@ -16,6 +16,8 @@ import ImageViewer from './ImageViewer';
 import NumInput from './NumInput';
 import { elapsedMs, formatDuration } from './session';
 import { uid } from './utils';
+import { UndoIcon } from './icons';
+import { setEditKey, useUndo } from './useUndo';
 import type {
   Exercise,
   FinishedExercise,
@@ -78,21 +80,39 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
   const totalSets = session.exercises.reduce((n, re) => n + re.sets.length, 0);
   const doneSets = session.exercises.reduce((n, re) => n + re.sets.filter((s) => s.done).length, 0);
 
+  // the timer is not part of undo: pausing isn't a step, and undo leaves the clock alone
+  const { change, undo, canUndo } = useUndo(session, onChange, (old, cur) => ({
+    ...old,
+    accumulatedMs: cur.accumulatedMs,
+    resumedAt: cur.resumedAt,
+  }));
+
   const pause = () =>
     onChange({ ...session, accumulatedMs: elapsedMs(session, Date.now()), resumedAt: null });
   const resume = () => onChange({ ...session, resumedAt: Date.now() });
 
-  const updateExercise = (id: string, fn: (re: RoutineExercise) => RoutineExercise) =>
-    onChange({
-      ...session,
-      exercises: session.exercises.map((re) => (re.id === id ? fn(re) : re)),
-    });
+  const updateExercise = (
+    id: string,
+    fn: (re: RoutineExercise) => RoutineExercise,
+    undoKey?: string,
+  ) =>
+    change(
+      {
+        ...session,
+        exercises: session.exercises.map((re) => (re.id === id ? fn(re) : re)),
+      },
+      undoKey,
+    );
 
   const patchSet = (reId: string, setId: string, patch: Partial<WorkoutSet>) =>
-    updateExercise(reId, (re) => ({
-      ...re,
-      sets: re.sets.map((s) => (s.id === setId ? { ...s, ...patch } : s)),
-    }));
+    updateExercise(
+      reId,
+      (re) => ({
+        ...re,
+        sets: re.sets.map((s) => (s.id === setId ? { ...s, ...patch } : s)),
+      }),
+      setEditKey(setId, patch),
+    );
 
   const addSet = (reId: string) =>
     updateExercise(reId, (re) => {
@@ -157,7 +177,7 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
     const sets = prev
       ? prev.sets.map((s) => ({ ...s, id: uid(), done: false }))
       : [{ ...blankSet(base, 'normal'), done: false }];
-    onChange({
+    change({
       ...session,
       exercises: [...session.exercises, { ...base, sets }],
       addedIds: [...(session.addedIds ?? []), id],
@@ -171,7 +191,7 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
 
   const removeExercise = (re: RoutineExercise) => {
     if (re.sets.some((s) => s.done) && !confirm('Remove this exercise and its done sets?')) return;
-    onChange({ ...session, exercises: session.exercises.filter((x) => x.id !== re.id) });
+    change({ ...session, exercises: session.exercises.filter((x) => x.id !== re.id) });
   };
 
   const pick = (e: Exercise) => {
@@ -185,7 +205,7 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
     if (target < 0 || target >= session.exercises.length) return;
     const list = [...session.exercises];
     [list[index], list[target]] = [list[target], list[index]];
-    onChange({ ...session, exercises: list });
+    change({ ...session, exercises: list });
   };
 
   return (
@@ -195,7 +215,17 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
           <button onClick={onMinimize} className="py-1 text-slate-400 active:text-slate-100">
             ← Routines
           </button>
-          <span className="truncate pl-3 text-sm text-slate-400">{session.routineName}</span>
+          <span className="min-w-0 flex-1 truncate px-3 text-center text-sm text-slate-400">
+            {session.routineName}
+          </span>
+          <button
+            onClick={undo}
+            disabled={!canUndo}
+            className="flex shrink-0 items-center gap-1.5 py-1 text-sm text-slate-400 active:text-slate-100 disabled:opacity-30"
+          >
+            <UndoIcon className="h-4 w-4" />
+            Undo
+          </button>
         </div>
         <div className="flex items-center justify-between gap-3">
           <div>

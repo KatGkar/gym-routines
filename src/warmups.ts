@@ -7,16 +7,19 @@ export const autoWarmupOn = (r: Routine) => r.autoWarmup !== false;
 
 const isAutoWarmup = (s: WorkoutSet) => s.type === 'warmup' && !!s.auto;
 
-// Ids of the exercises that are the first to train one of their primary muscles.
-// Only weight & reps exercises count, since only those have warmup sets.
+// Ids of the weight & reps exercises (the only ones with warmup sets) whose primary
+// muscles include one not worked yet. Every muscle an earlier exercise worked counts,
+// primary or secondary, whatever its kind except cardio.
 function firstForMuscle(exercises: RoutineExercise[], byId: Map<string, Exercise>): Set<string> {
   const trained = new Set<string>();
   const first = new Set<string>();
   for (const re of exercises) {
-    if ((re.kind ?? 'strength') !== 'strength') continue;
-    const muscles = byId.get(re.exerciseId)?.primaryMuscles ?? [];
-    if (muscles.some((m) => !trained.has(m))) first.add(re.id);
-    muscles.forEach((m) => trained.add(m));
+    const kind = re.kind ?? 'strength';
+    if (kind === 'cardio') continue;
+    const ex = byId.get(re.exerciseId);
+    const primary = ex?.primaryMuscles ?? [];
+    if (kind === 'strength' && primary.some((m) => !trained.has(m))) first.add(re.id);
+    [...primary, ...(ex?.secondaryMuscles ?? [])].forEach((m) => trained.add(m));
   }
   return first;
 }
@@ -33,8 +36,8 @@ function warmupSet(re: RoutineExercise): WorkoutSet {
   };
 }
 
-// Called on every routine edit. An exercise that just became the first one for a
-// primary muscle gets 2 warmups; one that no longer is loses its automatic warmups.
+// Called on every routine edit. An exercise that just became the first one to work a
+// new muscle gets 2 warmups; one that no longer is loses its automatic warmups.
 // Exercises that didn't change status are left alone, so deleting a warmup sticks.
 export function syncAutoWarmups(
   prev: Routine,

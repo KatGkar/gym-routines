@@ -16,7 +16,8 @@ import {
 } from './columns';
 import { useExercises } from './useExercises';
 import { uid } from './utils';
-import { PencilIcon } from './icons';
+import { PencilIcon, UndoIcon } from './icons';
+import { setEditKey, useUndo } from './useUndo';
 import { autoWarmupOn, syncAutoWarmups } from './warmups';
 
 import type {
@@ -82,14 +83,24 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
   const [picking, setPicking] = useState(false);
   const [viewing, setViewing] = useState<Exercise | null>(null);
 
-  // every edit goes through here so the automatic warmups stay in the right place
-  const save = (next: Routine) => onChange(syncAutoWarmups(routine, next, byId));
+  const { change, undo, canUndo } = useUndo(routine, onChange);
 
-  const updateExercise = (id: string, fn: (re: RoutineExercise) => RoutineExercise) =>
-    save({
-      ...routine,
-      exercises: routine.exercises.map((re) => (re.id === id ? fn(re) : re)),
-    });
+  // every edit goes through here so the automatic warmups stay in the right place
+  const save = (next: Routine, undoKey?: string) =>
+    change(syncAutoWarmups(routine, next, byId), undoKey);
+
+  const updateExercise = (
+    id: string,
+    fn: (re: RoutineExercise) => RoutineExercise,
+    undoKey?: string,
+  ) =>
+    save(
+      {
+        ...routine,
+        exercises: routine.exercises.map((re) => (re.id === id ? fn(re) : re)),
+      },
+      undoKey,
+    );
 
   const addExercise = (e: Exercise) => {
     save({
@@ -154,10 +165,14 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
     });
 
   const updateSet = (reId: string, setId: string, patch: Partial<WorkoutSet>) =>
-    updateExercise(reId, (re) => ({
-      ...re,
-      sets: re.sets.map((s) => (s.id === setId ? { ...s, ...patch } : s)),
-    }));
+    updateExercise(
+      reId,
+      (re) => ({
+        ...re,
+        sets: re.sets.map((s) => (s.id === setId ? { ...s, ...patch } : s)),
+      }),
+      setEditKey(setId, patch),
+    );
 
   const removeSet = (reId: string, setId: string) =>
     updateExercise(reId, (re) => ({
@@ -171,15 +186,25 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
 
   return (
     <div>
-      <button onClick={onBack} className="mb-4 py-1 text-slate-400 active:text-slate-100">
-        ← Back
-      </button>
+      <div className="mb-4 flex items-center justify-between">
+        <button onClick={onBack} className="py-1 text-slate-400 active:text-slate-100">
+          ← Back
+        </button>
+        <button
+          onClick={undo}
+          disabled={!canUndo}
+          className="flex items-center gap-1.5 py-1 text-sm text-slate-400 active:text-slate-100 disabled:opacity-30"
+        >
+          <UndoIcon className="h-4 w-4" />
+          Undo
+        </button>
+      </div>
 
       <div className="mb-4 flex items-center gap-2 border-b-2 border-transparent focus-within:border-emerald-500">
         <input
           id="routine-name"
           value={routine.name}
-          onChange={(e) => save({ ...routine, name: e.target.value })}
+          onChange={(e) => save({ ...routine, name: e.target.value }, 'name')}
           onFocus={(e) => e.target.select()}
           placeholder="Routine name"
           className="w-full bg-transparent py-2 text-2xl font-semibold placeholder:text-slate-400 focus:outline-none"
@@ -278,7 +303,9 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
 
               <textarea
                 value={re.notes ?? ''}
-                onChange={(e) => updateExercise(re.id, (x) => ({ ...x, notes: e.target.value }))}
+                onChange={(e) =>
+                  updateExercise(re.id, (x) => ({ ...x, notes: e.target.value }), 'notes:' + re.id)
+                }
                 placeholder="Notes (e.g. seat position 4)"
                 rows={2}
                 className="mb-3 w-full resize-none rounded-lg bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
