@@ -24,6 +24,7 @@ function WorkoutCard({ w, onDelete }: { w: FinishedWorkout; onDelete: (id: strin
   const [open, setOpen] = useState(false);
   const total = w.exercises.reduce((n, e) => n + e.sets.length, 0);
   const done = w.exercises.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0);
+  const failed = w.exercises.reduce((n, e) => n + e.sets.filter((s) => s.failed).length, 0);
 
   return (
     <li className="rounded-2xl bg-slate-900 ring-1 ring-slate-800">
@@ -41,6 +42,7 @@ function WorkoutCard({ w, onDelete }: { w: FinishedWorkout; onDelete: (id: strin
           </div>
           <div className="text-sm text-slate-500">
             {formatDuration(w.durationMs)} · {done}/{total} sets
+            {failed > 0 && <span className="text-red-400"> · {failed} failed</span>}
           </div>
         </button>
         <button
@@ -66,8 +68,16 @@ function WorkoutCard({ w, onDelete }: { w: FinishedWorkout; onDelete: (id: strin
                   <div key={s.id} className="text-sm text-slate-300">
                     <span className="inline-block w-6 text-slate-500">{labels[i]}</span>
                     {formatSet(e, s)}{' '}
-                    <span className={s.done ? 'text-emerald-400' : 'text-slate-600'}>
-                      {s.done ? '✓' : '✗'}
+                    <span
+                      className={
+                        s.failed ? 'text-red-400' : s.done ? 'text-emerald-400' : 'text-slate-600'
+                      }
+                    >
+                      {s.failed
+                        ? `✕ failed${s.target ? ` (planned ${s.target})` : ''}`
+                        : s.done
+                          ? '✓'
+                          : '✗'}
                     </span>
                   </div>
                 ))}

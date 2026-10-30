@@ -44,3 +44,73 @@ body {
     sans-serif;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* ===== CELEBRATIONS (exercise and workout finished) ===== */
+@keyframes cheer-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.9);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.03);
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes cheer-bounce {
+  0%,
+  100% {
+    transform: none;
+  }
+  30% {
+    transform: translateY(-8px) rotate(-10deg) scale(1.15);
+  }
+  60% {
+    transform: translateY(0) rotate(8deg);
+  }
+}
+@keyframes cheer-bar {
+  from {
+    width: var(--from);
+  }
+  to {
+    width: var(--to);
+  }
+}
+@keyframes confetti-fall {
+  from {
+    transform: translate3d(0, 0, 0) rotate(0);
+  }
+  to {
+    transform: translate3d(var(--dx), 110vh, 0) rotate(var(--rot));
+  }
+}
+.cheer-pop {
+  animation: cheer-pop 420ms ease-out both;
+}
+.cheer-bounce {
+  display: inline-block;
+  animation: cheer-bounce 900ms 250ms ease-in-out both;
+}
+.cheer-bar {
+  width: var(--to);
+  animation: cheer-bar 800ms 300ms ease-out both;
+}
+.confetti {
+  position: absolute;
+  top: -20px;
+  border-radius: 2px;
+  animation: confetti-fall linear both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cheer-pop,
+  .cheer-bounce,
+  .cheer-bar {
+    animation: none;
+  }
+  .confetti {
+    display: none;
+  }
+}

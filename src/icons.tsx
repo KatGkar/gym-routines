@@ -48,3 +48,19 @@ export const PencilIcon = (p: P) => (
     <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
   </svg>
 );
+
+export const UndoIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M9 14 4 9l5-5" />
+    <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+  </svg>
+);
+
+export const SwapIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M7 4 3 8l4 4" />
+    <path d="M3 8h14" />
+    <path d="m17 12 4 4-4 4" />
+    <path d="M21 16H7" />
+  </svg>
+);

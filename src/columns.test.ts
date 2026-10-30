@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { blankSet, formatSet, getCols, gridTemplate, setLabels } from './columns';
+import {
+  blankSet,
+  formatSet,
+  getCols,
+  gridTemplate,
+  repTarget,
+  setLabels,
+  withFailed,
+  withSet,
+} from './columns';
 import type { RoutineExercise, WorkoutSet } from './types';
 
 const ex = (patch: Partial<RoutineExercise> = {}): RoutineExercise => ({
@@ -102,5 +111,52 @@ describe('AMRAP', () => {
   it('starts working sets empty but warmups at 10 reps', () => {
     expect(blankSet(amrap, 'normal').reps).toBe(0);
     expect(blankSet(amrap, 'warmup').reps).toBe(10);
+  });
+});
+
+describe('withSet', () => {
+  const sets = (types: WorkoutSet['type'][]) =>
+    types.map((type, i): WorkoutSet => ({ id: String(i), type, weightKg: 0, reps: 10 }));
+  const add = (types: WorkoutSet['type'][], type: WorkoutSet['type']) =>
+    withSet(sets(types), { id: 'new', type, weightKg: 0, reps: 10 }).map((s) =>
+      s.id === 'new' ? type.toUpperCase() : s.type,
+    );
+
+  it('puts a new warmup before the first working set', () => {
+    expect(add(['warmup', 'warmup', 'normal'], 'warmup')).toEqual([
+      'warmup',
+      'warmup',
+      'WARMUP',
+      'normal',
+    ]);
+    expect(add(['normal', 'normal'], 'warmup')).toEqual(['WARMUP', 'normal', 'normal']);
+  });
+
+  it('adds warmups to the end when there are no working sets yet, and working sets always', () => {
+    expect(add(['warmup'], 'warmup')).toEqual(['warmup', 'WARMUP']);
+    expect(add(['warmup', 'normal'], 'normal')).toEqual(['warmup', 'normal', 'NORMAL']);
+  });
+});
+
+describe('failed sets', () => {
+  const set: WorkoutSet = { id: 's', type: 'normal', weightKg: 60, reps: 15, target: 15 };
+
+  it('is failed when done with fewer reps than planned', () => {
+    expect(withFailed({ ...set, reps: 5, done: true }).failed).toBe(true);
+    expect(withFailed({ ...set, reps: 0, done: true }).failed).toBe(true);
+  });
+
+  it('is not failed when the reps were made, or the set is not done', () => {
+    expect(withFailed({ ...set, done: true }).failed).toBeUndefined();
+    expect(withFailed({ ...set, reps: 20, done: true }).failed).toBeUndefined();
+    expect(withFailed({ ...set, reps: 5, done: false }).failed).toBeUndefined();
+    expect(withFailed({ ...set, target: undefined, reps: 5, done: true }).failed).toBeUndefined();
+  });
+
+  it('only plans reps for rep exercises, and not for AMRAP working sets', () => {
+    expect(repTarget(ex({}), set)).toBe(15);
+    expect(repTarget(ex({ kind: 'timed' }), set)).toBeUndefined();
+    expect(repTarget(ex({ repMode: 'amrap' }), set)).toBeUndefined();
+    expect(repTarget(ex({ repMode: 'amrap' }), { ...set, type: 'warmup' })).toBe(15);
   });
 });

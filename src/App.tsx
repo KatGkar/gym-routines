@@ -9,7 +9,7 @@ import { useExercises } from './useExercises';
 import { useRoutines } from './useRoutines';
 import { useLocalState } from './useLocalState';
 import { exportBackup, parseBackup } from './backup';
-import { applySessionToRoutine, createSession, elapsedMs } from './session';
+import { applySessionToRoutine, createSession, elapsedMs, saveNewAlternatives } from './session';
 import { uid } from './utils';
 import type { FinishedWorkout, Routine, WorkoutSession } from './types';
 import { CopyIcon, PlayIcon, TrashIcon } from './icons';
@@ -81,18 +81,17 @@ function AppInner() {
         routineName: session.routineName,
         startedAt: session.startedAt,
         durationMs: elapsedMs(session, Date.now()),
+        // history only keeps what was done, not the alternatives
         exercises: session.exercises.map((re) => ({
           ...re,
+          alternatives: undefined,
           name: byId.get(re.exerciseId)?.name ?? 'Unknown exercise',
         })),
       };
       setHistory((h) => [finished, ...h]);
 
-      if (mode === 'update') {
-        setRoutines((rs) =>
-          rs.map((r) => (r.id === session.routineId ? applySessionToRoutine(r, session) : r)),
-        );
-      }
+      const apply = mode === 'update' ? applySessionToRoutine : saveNewAlternatives;
+      setRoutines((rs) => rs.map((r) => (r.id === session.routineId ? apply(r, session) : r)));
     }
     setSession(null);
     setView('routines');
