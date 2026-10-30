@@ -13,13 +13,15 @@ import {
   isRange,
   setLabels,
   usesReps,
+  withSet,
 } from './columns';
 import { useExercises } from './useExercises';
 import { uid } from './utils';
 import { PencilIcon, UndoIcon } from './icons';
 import { setEditKey, useUndo } from './useUndo';
-import { autoWarmupOn, syncAutoWarmups } from './warmups';
 import { setupOf } from './session';
+import { CARD_GAP, cardShadow, flipCards, isFlipTap, stackRoom } from './cards';
+import { SwapIcon } from './icons';
 
 import type {
   CardioField,
@@ -79,22 +81,31 @@ const Chevron = () => (
   </svg>
 );
 
+type Sides = Record<string, number | 'empty'>;
+
 export default function RoutineEditor({ routine, onChange, onBack }: Props) {
   const { byId } = useExercises();
-  // null = closed, 'add' = add a new exercise, otherwise the id of the exercise to add an alternative to
+  // null = closed, 'add' = add a new exercise, otherwise the id of the exercise to add a swap to
   const [picking, setPicking] = useState<string | null>(null);
+  // Which side each card shows: 0 the routine's exercise, n its nth swap exercise,
+  // 'empty' the back with nothing on it yet
+  const [sides, setSides] = useState<Sides>({});
   const [viewing, setViewing] = useState<Exercise | null>(null);
 
-  const { change, undo, canUndo } = useUndo(routine, onChange);
+  // Turning a card over is a step to undo too, so undo turns it back
+  const { change, undo, canUndo, previous } = useUndo({ routine, sides }, (s) => {
+    setSides(s.sides);
+    if (s.routine !== routine) onChange(s.routine);
+  });
 
-  // every edit goes through here so the automatic warmups stay in the right place
-  const save = (next: Routine, undoKey?: string) =>
-    change(syncAutoWarmups(routine, next, byId), undoKey);
+  const save = (next: Routine, undoKey?: string, nextSides = sides) =>
+    change({ routine: next, sides: nextSides }, undoKey);
 
   const updateExercise = (
     id: string,
     fn: (re: RoutineExercise) => RoutineExercise,
     undoKey?: string,
+    nextSides?: Sides,
   ) =>
     save(
       {
@@ -102,7 +113,58 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
         exercises: routine.exercises.map((re) => (re.id === id ? fn(re) : re)),
       },
       undoKey,
+      nextSides,
     );
+
+  // the swap exercise a card is showing, as an index into its alternatives (-1 for the front)
+  const swapIndex = (re: RoutineExercise) => {
+    const side = sides[re.id];
+    return typeof side === 'number' && side <= (re.alternatives?.length ?? 0) ? side - 1 : -1;
+  };
+
+  // What a card shows: the routine's exercise, or one of its swap exercises in its place
+  const shownOf = (re: RoutineExercise): RoutineExercise => {
+    const i = swapIndex(re);
+    return i < 0 ? re : { ...re, ...re.alternatives![i] };
+  };
+
+  // Edits from a card go to whichever exercise it's showing
+  const updateShown = (
+    id: string,
+    fn: (re: RoutineExercise) => RoutineExercise,
+    undoKey?: string,
+  ) =>
+    updateExercise(
+      id,
+      (re) => {
+        const i = swapIndex(re);
+        if (i < 0) return fn(re);
+        const alternatives = [...re.alternatives!];
+        alternatives[i] = setupOf(fn({ ...re, ...alternatives[i] }));
+        return { ...re, alternatives };
+      },
+      undoKey,
+    );
+
+  // Tapping a card turns it to its next swap exercise and back round to the front,
+  // or to the empty back to add one
+  const flipCard = (card: HTMLElement, re: RoutineExercise) => {
+    const count = re.alternatives?.length ?? 0;
+    const side = sides[re.id] ?? 0;
+    const next = side === 'empty' ? 0 : count === 0 ? 'empty' : (side + 1) % (count + 1);
+    flipCards([card], () => change({ routine, sides: { ...sides, [re.id]: next } }));
+  };
+
+  // Undo turns back over the cards whose side it changes
+  const undoWithFlip = () => {
+    const sideOf = (s: Sides, id: string) => s[id] ?? 0;
+    const cards = routine.exercises.flatMap((re) => {
+      if (!previous || sideOf(previous.sides, re.id) === sideOf(sides, re.id)) return [];
+      const card = document.querySelector<HTMLElement>(`[data-card="${re.id}"]`);
+      return card ? [card] : [];
+    });
+    flipCards(cards, undo);
+  };
 
   const addExercise = (e: Exercise) => {
     save({
@@ -115,34 +177,49 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
     setPicking(null);
   };
 
-  // An alternative starts as a copy of the exercise's setup, like a swap in a workout
-  const addAlternative = (reId: string, e: Exercise) =>
-    updateExercise(reId, (re) =>
-      re.exerciseId === e.id || re.alternatives?.some((a) => a.exerciseId === e.id)
-        ? re
-        : {
-            ...re,
-            alternatives: [
-              ...(re.alternatives ?? []),
-              {
-                ...setupOf(re),
-                exerciseId: e.id,
-                notes: undefined,
-                sets: re.sets.map((s) => ({ ...s, id: uid() })),
-              },
-            ],
-          },
+  // A swap exercise starts as a copy of the exercise's setup, like a swap in a workout,
+  // and the card then shows it
+  const addSwap = (reId: string, e: Exercise) => {
+    const count = routine.exercises.find((x) => x.id === reId)?.alternatives?.length ?? 0;
+    updateExercise(
+      reId,
+      (re) =>
+        re.exerciseId === e.id || re.alternatives?.some((a) => a.exerciseId === e.id)
+          ? re
+          : {
+              ...re,
+              alternatives: [
+                ...(re.alternatives ?? []),
+                {
+                  ...setupOf(re),
+                  exerciseId: e.id,
+                  notes: undefined,
+                  sets: re.sets.map((s) => ({ ...s, id: uid() })),
+                },
+              ],
+            },
+      undefined,
+      { ...sides, [reId]: count + 1 },
     );
+  };
 
-  const removeAlternative = (reId: string, exerciseId: string) =>
-    updateExercise(reId, (re) => {
-      const left = re.alternatives?.filter((a) => a.exerciseId !== exerciseId) ?? [];
-      return { ...re, alternatives: left.length ? left : undefined };
-    });
+  const removeSwap = (re: RoutineExercise, name: string) => {
+    if (!confirm(`Remove the swap exercise "${name}"?`)) return;
+    const i = swapIndex(re);
+    updateExercise(
+      re.id,
+      (x) => {
+        const left = x.alternatives?.filter((_, j) => j !== i) ?? [];
+        return { ...x, alternatives: left.length ? left : undefined };
+      },
+      undefined,
+      { ...sides, [re.id]: 0 },
+    );
+  };
 
   const pick = (e: Exercise) => {
     if (picking === 'add') addExercise(e);
-    else if (picking) addAlternative(picking, e);
+    else if (picking) addSwap(picking, e);
     setPicking(null);
   };
 
@@ -160,10 +237,10 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
   };
 
   const setKind = (reId: string, kind: ExerciseKind) =>
-    updateExercise(reId, (re) => ({ ...re, kind }));
+    updateShown(reId, (re) => ({ ...re, kind }));
 
   const toggleCardioField = (reId: string, field: CardioField) =>
-    updateExercise(reId, (re) => {
+    updateShown(reId, (re) => {
       const cur = re.cardioFields ?? DEFAULT_CARDIO;
       if (cur.includes(field) && cur.length === 1) return re; // keep at least one
       const next = CARDIO_ORDER.filter((k) =>
@@ -173,7 +250,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
     });
 
   const setRepMode = (reId: string, mode: RepMode) =>
-    updateExercise(reId, (re) => ({
+    updateShown(reId, (re) => ({
       ...re,
       repMode: mode,
       sets: re.sets.map((s) => {
@@ -187,18 +264,18 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
     }));
 
   const addSet = (reId: string, type: SetType) =>
-    updateExercise(reId, (re) => {
+    updateShown(reId, (re) => {
       // copy the values of the previous set (of the same type if there is one)
       const prev =
         [...re.sets].reverse().find((s) => s.type === type) ?? re.sets[re.sets.length - 1];
       const fresh: WorkoutSet = prev
         ? { ...prev, id: uid(), type, done: undefined }
         : blankSet(re, type);
-      return { ...re, sets: [...re.sets, fresh] };
+      return { ...re, sets: withSet(re.sets, fresh) };
     });
 
   const updateSet = (reId: string, setId: string, patch: Partial<WorkoutSet>) =>
-    updateExercise(
+    updateShown(
       reId,
       (re) => ({
         ...re,
@@ -208,7 +285,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
     );
 
   const removeSet = (reId: string, setId: string) =>
-    updateExercise(reId, (re) => ({
+    updateShown(reId, (re) => ({
       ...re,
       sets: re.sets.filter((s) => s.id !== setId),
     }));
@@ -216,7 +293,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
   if (picking) {
     return (
       <ExercisePicker
-        title={picking === 'add' ? 'Add exercise' : 'Add alternative'}
+        title={picking === 'add' ? 'Add exercise' : 'Add swap exercise'}
         onPick={pick}
         onClose={() => setPicking(null)}
       />
@@ -230,7 +307,7 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
           ← Back
         </button>
         <button
-          onClick={undo}
+          onClick={undoWithFlip}
           disabled={!canUndo}
           className="flex items-center gap-1.5 py-1 text-sm text-slate-400 active:text-slate-100 disabled:opacity-30"
         >
@@ -253,21 +330,15 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
         </label>
       </div>
 
-      <label className="mb-4 flex cursor-pointer items-center justify-between gap-3 rounded-xl bg-slate-900 px-4 py-3 ring-1 ring-slate-800">
-        <span className="text-sm">
-          <span className="block text-slate-200">Auto warmups</span>
-          <span className="block text-xs text-slate-500">2 warmup sets for each new muscle</span>
-        </span>
-        <input
-          type="checkbox"
-          checked={autoWarmupOn(routine)}
-          onChange={(e) => save({ ...routine, autoWarmup: e.target.checked })}
-          className="h-5 w-5 shrink-0 accent-emerald-500"
-        />
-      </label>
-
-      <div className="space-y-4">
-        {routine.exercises.map((re, index) => {
+      <div className={`flex flex-col ${CARD_GAP}`}>
+        {routine.exercises.map((main, index) => {
+          // `re` is what the card shows: the routine's exercise or one of its swap exercises
+          const re = shownOf(main);
+          const swaps = main.alternatives ?? [];
+          const onSwap = swapIndex(main) >= 0;
+          const onEmpty = sides[main.id] === 'empty';
+          const nextSwap = onSwap ? swaps[swapIndex(main) + 1] : swaps[0];
+          const nameOf = (id: string) => byId.get(id)?.name ?? 'Unknown exercise';
           const ex = byId.get(re.exerciseId);
           const labels = setLabels(re.sets);
           const kind: ExerciseKind = re.kind ?? 'strength';
@@ -278,284 +349,320 @@ export default function RoutineEditor({ routine, onChange, onBack }: Props) {
           const gridStyle = { gridTemplateColumns: gridTemplate(re, '2rem') };
 
           return (
-            <section key={re.id} className="rounded-2xl bg-slate-900 p-4 ring-1 ring-slate-800">
-              <div className="mb-3 flex items-center gap-3">
-                {ex?.images[0] && (
+            <section
+              key={re.id}
+              data-card={re.id}
+              onClick={(e) => {
+                if (isFlipTap(e)) flipCard(e.currentTarget, main);
+              }}
+              className={
+                'relative cursor-pointer rounded-2xl p-4 ' +
+                (onEmpty
+                  ? 'border-2 border-dashed border-slate-700 bg-slate-900/60'
+                  : 'bg-slate-900 ' + stackRoom(swaps.length))
+              }
+              style={onEmpty ? undefined : { boxShadow: cardShadow(swaps.length) }}
+            >
+              {onEmpty ? (
+                <div className="flex flex-col items-center gap-3 py-6 text-center">
+                  <div className="font-semibold text-slate-200">Swap exercise</div>
+                  <p className="max-w-60 text-xs text-slate-500">
+                    For when {nameOf(main.exerciseId)} is taken. In a workout, tap the card to swap
+                    to it.
+                  </p>
                   <button
-                    onClick={() => setViewing(ex)}
-                    aria-label="View large photo"
-                    className="shrink-0"
+                    onClick={() => setPicking(main.id)}
+                    className="rounded-xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-slate-950 active:bg-emerald-400"
                   >
-                    <img
-                      src={imageUrl(ex.images[0])}
-                      crossOrigin="anonymous"
-                      alt=""
-                      loading="lazy"
-                      className="h-14 w-14 rounded-lg bg-slate-800 object-cover"
-                    />
+                    + Add swap exercise
                   </button>
-                )}
-                <div className="min-w-0 flex-1">
-                  {ex ? (
-                    <button
-                      onClick={() => setViewing(ex)}
-                      className="text-left font-semibold text-emerald-400 active:text-emerald-500"
-                    >
-                      {ex.name}
-                    </button>
-                  ) : (
-                    <div className="font-semibold text-emerald-400">Unknown exercise</div>
-                  )}
-                  <div className="flex flex-wrap gap-x-2 text-xs capitalize">
-                    <span className="text-slate-300">{ex?.primaryMuscles.join(', ')}</span>
-                    {ex && ex.secondaryMuscles.length > 0 && (
-                      <span className="text-sky-400">{ex.secondaryMuscles.join(', ')}</span>
-                    )}
+                  <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                    <SwapIcon className="h-3.5 w-3.5" />
+                    Tap to go back to {nameOf(main.exerciseId)}
                   </div>
                 </div>
-                <div className="flex shrink-0 items-center">
-                  <button
-                    onClick={() => moveExercise(index, -1)}
-                    disabled={index === 0}
-                    aria-label="Move up"
-                    className="px-2 py-1 text-slate-400 active:text-slate-100 disabled:opacity-20"
-                  >
-                    ↑
-                  </button>
-                  <button
-                    onClick={() => moveExercise(index, 1)}
-                    disabled={index === routine.exercises.length - 1}
-                    aria-label="Move down"
-                    className="px-2 py-1 text-slate-400 active:text-slate-100 disabled:opacity-20"
-                  >
-                    ↓
-                  </button>
-                  <button
-                    onClick={() => removeExercise(re.id, ex?.name ?? 'Unknown exercise')}
-                    aria-label="Remove exercise"
-                    className="px-2 py-1 text-slate-500 active:text-red-400"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-
-              <textarea
-                value={re.notes ?? ''}
-                onChange={(e) =>
-                  updateExercise(re.id, (x) => ({ ...x, notes: e.target.value }), 'notes:' + re.id)
-                }
-                placeholder="Notes (e.g. seat position 4)"
-                rows={2}
-                className="mb-3 w-full resize-none rounded-lg bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-              />
-
-              <div className="mb-3 flex flex-wrap items-center gap-1">
-                <span className="text-xs text-slate-500">Alternatives</span>
-                {re.alternatives?.map((a) => {
-                  const name = byId.get(a.exerciseId)?.name ?? 'Unknown exercise';
-                  return (
-                    <span
-                      key={a.exerciseId}
-                      className="flex items-center rounded-full bg-slate-800 pl-2 text-xs text-slate-200"
-                    >
-                      {name}
+              ) : (
+                <>
+                  <div className="mb-3 flex items-center gap-3">
+                    {ex?.images[0] && (
                       <button
-                        onClick={() => removeAlternative(re.id, a.exerciseId)}
-                        aria-label={`Remove alternative ${name}`}
-                        className="px-2 py-0.5 text-slate-500 active:text-red-400"
+                        onClick={() => setViewing(ex)}
+                        aria-label="View large photo"
+                        className="shrink-0"
+                      >
+                        <img
+                          src={imageUrl(ex.images[0])}
+                          crossOrigin="anonymous"
+                          alt=""
+                          loading="lazy"
+                          className="h-14 w-14 rounded-lg bg-slate-800 object-cover"
+                        />
+                      </button>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      {ex ? (
+                        <button
+                          onClick={() => setViewing(ex)}
+                          className="text-left font-semibold text-emerald-400 active:text-emerald-500"
+                        >
+                          {ex.name}
+                        </button>
+                      ) : (
+                        <div className="font-semibold text-emerald-400">Unknown exercise</div>
+                      )}
+                      <div className="flex flex-wrap gap-x-2 text-xs capitalize">
+                        <span className="text-slate-300">{ex?.primaryMuscles.join(', ')}</span>
+                        {ex && ex.secondaryMuscles.length > 0 && (
+                          <span className="text-sky-400">{ex.secondaryMuscles.join(', ')}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center">
+                      <button
+                        onClick={() => moveExercise(index, -1)}
+                        disabled={index === 0}
+                        aria-label="Move up"
+                        className="px-2 py-1 text-slate-400 active:text-slate-100 disabled:opacity-20"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        onClick={() => moveExercise(index, 1)}
+                        disabled={index === routine.exercises.length - 1}
+                        aria-label="Move down"
+                        className="px-2 py-1 text-slate-400 active:text-slate-100 disabled:opacity-20"
+                      >
+                        ↓
+                      </button>
+                      <button
+                        onClick={() =>
+                          onSwap
+                            ? removeSwap(main, nameOf(re.exerciseId))
+                            : removeExercise(re.id, nameOf(re.exerciseId))
+                        }
+                        aria-label={onSwap ? 'Remove swap exercise' : 'Remove exercise'}
+                        className="px-2 py-1 text-slate-500 active:text-red-400"
                       >
                         ✕
                       </button>
-                    </span>
-                  );
-                })}
-                <button
-                  onClick={() => setPicking(re.id)}
-                  className="rounded-full px-2 py-0.5 text-xs font-medium text-emerald-400 active:text-emerald-500"
-                >
-                  + Alternative
-                </button>
-              </div>
+                    </div>
+                  </div>
 
-              <div className="mb-3">
-                <label className="relative inline-flex items-center gap-1 text-xs text-slate-500 uppercase">
-                  <span>{KIND_LABELS[kind]}</span>
-                  <Chevron />
-                  <select
-                    value={kind}
-                    onChange={(e) => setKind(re.id, e.target.value as ExerciseKind)}
-                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                  >
-                    <option value="strength">Weight & reps</option>
-                    <option value="bodyweight">Bodyweight reps</option>
-                    <option value="timed">Timed</option>
-                    <option value="cardio">Cardio / distance</option>
-                  </select>
-                </label>
-              </div>
+                  <textarea
+                    value={re.notes ?? ''}
+                    onChange={(e) =>
+                      updateShown(re.id, (x) => ({ ...x, notes: e.target.value }), 'notes:' + re.id)
+                    }
+                    placeholder="Notes (e.g. seat position 4)"
+                    rows={2}
+                    className="mb-3 w-full resize-none rounded-lg bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
 
-              {kind === 'cardio' && (
-                <div className="mb-3 flex flex-wrap gap-2">
-                  {CARDIO_CHIPS.map((c) => {
-                    const on = cardioKeys.includes(c.key);
-                    return (
-                      <button
-                        key={c.key}
-                        onClick={() => toggleCardioField(re.id, c.key)}
-                        className={
-                          'rounded-full px-3 py-1 text-xs font-medium ' +
-                          (on ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400')
-                        }
+                  <div className="mb-3">
+                    <label className="relative inline-flex items-center gap-1 text-xs text-slate-500 uppercase">
+                      <span>{KIND_LABELS[kind]}</span>
+                      <Chevron />
+                      <select
+                        value={kind}
+                        onChange={(e) => setKind(re.id, e.target.value as ExerciseKind)}
+                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                       >
-                        {c.chip}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+                        <option value="strength">Weight & reps</option>
+                        <option value="bodyweight">Bodyweight reps</option>
+                        <option value="timed">Timed</option>
+                        <option value="cardio">Cardio / distance</option>
+                      </select>
+                    </label>
+                  </div>
 
-              {re.sets.length > 0 && (
-                <div
-                  className="mb-1 grid gap-2 px-0.5 text-center text-xs text-slate-500 uppercase"
-                  style={gridStyle}
-                >
-                  <span>Set</span>
-                  {cols.map((c) =>
-                    c.key === 'reps' ? (
-                      <label key="reps" className="relative flex items-center justify-center gap-1">
-                        <span>{REP_MODE_LABELS[repMode]}</span>
-                        <Chevron />
-                        <select
-                          value={repMode}
-                          onChange={(e) => setRepMode(re.id, e.target.value as RepMode)}
-                          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                        >
-                          <option value="fixed">Reps</option>
-                          <option value="range">Range reps</option>
-                          <option value="amrap">As many as possible</option>
-                        </select>
-                      </label>
-                    ) : (
-                      <span key={c.key}>{c.label}</span>
-                    ),
-                  )}
-                  <span />
-                </div>
-              )}
-
-              <div className="space-y-2">
-                {re.sets.map((s, i) => (
-                  <div key={s.id} className="grid items-center gap-2" style={gridStyle}>
-                    <button
-                      onClick={() =>
-                        updateSet(re.id, s.id, {
-                          type: s.type === 'warmup' ? 'normal' : 'warmup',
-                          auto: undefined, // a set you changed by hand is yours to keep
-                        })
-                      }
-                      aria-label="Toggle warmup or normal set"
-                      className={
-                        'h-10 rounded-lg font-semibold ' +
-                        (s.type === 'warmup'
-                          ? 'bg-amber-500/20 text-amber-400'
-                          : 'bg-slate-800 text-slate-200')
-                      }
-                    >
-                      {labels[i]}
-                    </button>
-
-                    {cols.map((c) => {
-                      if (c.key !== 'reps') {
-                        const key = c.key;
+                  {kind === 'cardio' && (
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      {CARDIO_CHIPS.map((c) => {
+                        const on = cardioKeys.includes(c.key);
                         return (
-                          <NumInput
-                            key={key}
-                            value={s[key]}
-                            decimal={key !== 'seconds'}
-                            onChange={(v) =>
-                              updateSet(re.id, s.id, { [key]: v } as Partial<WorkoutSet>)
+                          <button
+                            key={c.key}
+                            onClick={() => toggleCardioField(re.id, c.key)}
+                            className={
+                              'rounded-full px-3 py-1 text-xs font-medium ' +
+                              (on ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400')
                             }
-                            className={inputClass + ' min-w-0'}
-                          />
-                        );
-                      }
-                      if (repMode === 'amrap' && s.type === 'normal') {
-                        return (
-                          <div
-                            key="reps"
-                            className="flex h-10 items-center justify-center rounded-lg bg-slate-800 text-sm font-semibold text-emerald-400"
                           >
-                            AMRAP
-                          </div>
+                            {c.chip}
+                          </button>
                         );
-                      }
-                      return range ? (
-                        <div key="reps" className="flex items-center gap-1">
-                          <NumInput
-                            value={s.reps}
-                            decimal={false}
-                            placeholder="8"
-                            onChange={(v) =>
-                              updateSet(re.id, s.id, {
-                                reps: v,
-                                ...(s.repsMax !== undefined && v > s.repsMax ? { repsMax: v } : {}),
-                              })
-                            }
-                            className={inputClass + ' min-w-0'}
-                          />
-                          <span className="text-slate-500">–</span>
-                          <NumInput
-                            value={s.repsMax}
-                            decimal={false}
-                            placeholder="12"
-                            onChange={(v) => updateSet(re.id, s.id, { repsMax: v })}
-                            onBlur={() => {
-                              if (s.repsMax !== undefined && s.repsMax > 0 && s.repsMax < s.reps) {
-                                updateSet(re.id, s.id, { repsMax: s.reps });
-                              }
-                            }}
-                            className={inputClass + ' min-w-0'}
-                          />
-                        </div>
-                      ) : (
-                        <NumInput
-                          key="reps"
-                          value={s.reps}
-                          decimal={false}
-                          onChange={(v) => updateSet(re.id, s.id, { reps: v })}
-                          className={inputClass + ' min-w-0'}
-                        />
-                      );
-                    })}
+                      })}
+                    </div>
+                  )}
 
-                    <button
-                      onClick={() => removeSet(re.id, s.id)}
-                      aria-label="Remove set"
-                      className="text-slate-600 active:text-red-400"
+                  {re.sets.length > 0 && (
+                    <div
+                      className="mb-1 grid gap-2 px-0.5 text-center text-xs text-slate-500 uppercase"
+                      style={gridStyle}
                     >
-                      ✕
+                      <span>Set</span>
+                      {cols.map((c) =>
+                        c.key === 'reps' ? (
+                          <label
+                            key="reps"
+                            className="relative flex items-center justify-center gap-1"
+                          >
+                            <span>{REP_MODE_LABELS[repMode]}</span>
+                            <Chevron />
+                            <select
+                              value={repMode}
+                              onChange={(e) => setRepMode(re.id, e.target.value as RepMode)}
+                              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                            >
+                              <option value="fixed">Reps</option>
+                              <option value="range">Range reps</option>
+                              <option value="amrap">As many as possible</option>
+                            </select>
+                          </label>
+                        ) : (
+                          <span key={c.key}>{c.label}</span>
+                        ),
+                      )}
+                      <span />
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    {re.sets.map((s, i) => (
+                      <div key={s.id} className="grid items-center gap-2" style={gridStyle}>
+                        <button
+                          onClick={() =>
+                            updateSet(re.id, s.id, {
+                              type: s.type === 'warmup' ? 'normal' : 'warmup',
+                            })
+                          }
+                          aria-label="Toggle warmup or normal set"
+                          className={
+                            'h-10 rounded-lg font-semibold ' +
+                            (s.type === 'warmup'
+                              ? 'bg-amber-500/20 text-amber-400'
+                              : 'bg-slate-800 text-slate-200')
+                          }
+                        >
+                          {labels[i]}
+                        </button>
+
+                        {cols.map((c) => {
+                          if (c.key !== 'reps') {
+                            const key = c.key;
+                            return (
+                              <NumInput
+                                key={key}
+                                value={s[key]}
+                                decimal={key !== 'seconds'}
+                                onChange={(v) =>
+                                  updateSet(re.id, s.id, { [key]: v } as Partial<WorkoutSet>)
+                                }
+                                className={inputClass + ' min-w-0'}
+                              />
+                            );
+                          }
+                          if (repMode === 'amrap' && s.type === 'normal') {
+                            return (
+                              <div
+                                key="reps"
+                                className="flex h-10 items-center justify-center rounded-lg bg-slate-800 text-sm font-semibold text-emerald-400"
+                              >
+                                AMRAP
+                              </div>
+                            );
+                          }
+                          return range ? (
+                            <div key="reps" className="flex items-center gap-1">
+                              <NumInput
+                                value={s.reps}
+                                decimal={false}
+                                placeholder="8"
+                                onChange={(v) =>
+                                  updateSet(re.id, s.id, {
+                                    reps: v,
+                                    ...(s.repsMax !== undefined && v > s.repsMax
+                                      ? { repsMax: v }
+                                      : {}),
+                                  })
+                                }
+                                className={inputClass + ' min-w-0'}
+                              />
+                              <span className="text-slate-500">–</span>
+                              <NumInput
+                                value={s.repsMax}
+                                decimal={false}
+                                placeholder="12"
+                                onChange={(v) => updateSet(re.id, s.id, { repsMax: v })}
+                                onBlur={() => {
+                                  if (
+                                    s.repsMax !== undefined &&
+                                    s.repsMax > 0 &&
+                                    s.repsMax < s.reps
+                                  ) {
+                                    updateSet(re.id, s.id, { repsMax: s.reps });
+                                  }
+                                }}
+                                className={inputClass + ' min-w-0'}
+                              />
+                            </div>
+                          ) : (
+                            <NumInput
+                              key="reps"
+                              value={s.reps}
+                              decimal={false}
+                              onChange={(v) => updateSet(re.id, s.id, { reps: v })}
+                              className={inputClass + ' min-w-0'}
+                            />
+                          );
+                        })}
+
+                        <button
+                          onClick={() => removeSet(re.id, s.id)}
+                          aria-label="Remove set"
+                          className="text-slate-600 active:text-red-400"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 flex gap-2">
+                    {kind === 'strength' && (
+                      <button
+                        onClick={() => addSet(re.id, 'warmup')}
+                        className="flex-1 rounded-lg bg-amber-500/10 py-2 text-sm font-medium text-amber-400 active:bg-amber-500/20"
+                      >
+                        + Warmup
+                      </button>
+                    )}
+                    <button
+                      onClick={() => addSet(re.id, 'normal')}
+                      className="flex-1 rounded-lg bg-slate-800 py-2 text-sm font-medium text-slate-200 active:bg-slate-700"
+                    >
+                      + Set
                     </button>
                   </div>
-                ))}
-              </div>
 
-              <div className="mt-3 flex gap-2">
-                {kind === 'strength' && (
-                  <button
-                    onClick={() => addSet(re.id, 'warmup')}
-                    className="flex-1 rounded-lg bg-amber-500/10 py-2 text-sm font-medium text-amber-400 active:bg-amber-500/20"
-                  >
-                    + Warmup
-                  </button>
-                )}
-                <button
-                  onClick={() => addSet(re.id, 'normal')}
-                  className="flex-1 rounded-lg bg-slate-800 py-2 text-sm font-medium text-slate-200 active:bg-slate-700"
-                >
-                  + Set
-                </button>
-              </div>
+                  <div className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
+                    <SwapIcon className="h-3.5 w-3.5" />
+                    {nextSwap ? (
+                      <span>
+                        Tap to see swap exercise{' '}
+                        <span className="text-slate-300">{nameOf(nextSwap.exerciseId)}</span>
+                      </span>
+                    ) : onSwap ? (
+                      <span>
+                        Tap to go back to{' '}
+                        <span className="text-slate-300">{nameOf(main.exerciseId)}</span>
+                      </span>
+                    ) : (
+                      'Tap to add a swap exercise'
+                    )}
+                  </div>
+                </>
+              )}
             </section>
           );
         })}

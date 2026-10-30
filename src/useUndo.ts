@@ -22,7 +22,8 @@ export function useUndo<T>(value: T, onChange: (v: T) => void, restore?: (old: T
     onChange(restore ? restore(old, value) : old);
   };
 
-  return { change, undo, canUndo: past.length > 0 };
+  // previous: what undo would go back to (before `restore`)
+  return { change, undo, canUndo: past.length > 0, previous: past[past.length - 1] };
 }
 
 // Key for a set edit, so typing a number is one undo step (toggles are always their own)

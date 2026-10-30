@@ -3,6 +3,7 @@ import {
   applySessionToRoutine,
   createSession,
   elapsedMs,
+  finishedBy,
   formatDuration,
   saveNewAlternatives,
   swapTo,
@@ -65,6 +66,7 @@ describe('createSession', () => {
     expect(s.exercises[0].id).toBe('a');
     expect(s.exercises[0].sets[0].id).not.toBe('s1');
     expect(s.exercises[0].sets[0].done).toBe(false);
+    expect(s.exercises[0].sets[0].target).toBe(10); // the planned reps, to tell a failed set
   });
 });
 
@@ -89,6 +91,12 @@ describe('applySessionToRoutine', () => {
     expect(out.exercises[0].sets.map((s) => s.id)).toEqual(['n1', 'n2']);
     expect(out.exercises[0].sets[0].reps).toBe(5);
     expect(out.exercises.flatMap((e) => e.sets).every((s) => s.done === undefined)).toBe(true);
+  });
+
+  it('does not keep failed sets as failed in the routine', () => {
+    const session = baseSession([ex('a', [set('n1', { reps: 5, done: true, failed: true })])]);
+    const out = applySessionToRoutine(routine, session);
+    expect(out.exercises[0].sets[0]).toMatchObject({ reps: 5, failed: undefined });
   });
 
   it('keeps routine-only fields and appends exercises missing from the session', () => {
@@ -175,5 +183,41 @@ describe('saveNewAlternatives', () => {
     expect(out.exercises[0].alternatives?.map((x) => x.exerciseId)).toEqual(['alt', 'new']);
     expect(out.exercises[0].alternatives?.[0]).toBe(alt);
     expect(out.exercises[1]).toBe(routine.exercises[1]);
+  });
+});
+
+describe('finishedBy', () => {
+  const tick = (s: WorkoutSession, id: string, done = true): WorkoutSession => ({
+    ...s,
+    exercises: s.exercises.map((re) =>
+      re.id === id ? { ...re, sets: re.sets.map((x) => ({ ...x, done })) } : re,
+    ),
+  });
+  const start = baseSession([ex('a', [set('a1'), set('a2')]), ex('b', [set('b1')])]);
+
+  it('notices an exercise getting all its sets done, failed ones too', () => {
+    const half = {
+      ...start,
+      exercises: [ex('a', [set('a1', { done: true }), set('a2')]), start.exercises[1]],
+    };
+    expect(finishedBy(start, half)).toBeNull();
+    const failed = tick(half, 'a');
+    failed.exercises[0].sets[0].failed = true;
+    expect(finishedBy(half, failed)).toBe('exercise');
+  });
+
+  it('calls it the whole workout when the last exercise is done', () => {
+    const aDone = tick(start, 'a');
+    expect(finishedBy(aDone, tick(aDone, 'b'))).toBe('workout');
+  });
+
+  it('stays quiet for changes to an exercise that was already done', () => {
+    const aDone = tick(start, 'a');
+    const edited = {
+      ...aDone,
+      exercises: [{ ...aDone.exercises[0], notes: 'x' }, aDone.exercises[1]],
+    };
+    expect(finishedBy(aDone, edited)).toBeNull();
+    expect(finishedBy(aDone, tick(aDone, 'a', false))).toBeNull();
   });
 });

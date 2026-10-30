@@ -33,7 +33,8 @@ export interface WorkoutSet {
   speedKmh?: number;
   inclinePct?: number;
   done?: boolean;
-  auto?: boolean; // warmup added automatically by the routine editor
+  failed?: boolean; // done, but fewer reps than planned (e.g. 5 of 15); always done too
+  target?: number; // the reps planned for this set, in a workout
 }
 
 export interface RoutineExercise {
@@ -54,7 +55,6 @@ export interface Routine {
   id: string;
   name: string;
   exercises: RoutineExercise[];
-  autoWarmup?: boolean; // add 2 warmups for each new primary muscle (default on)
 }
 
 // A workout in progress (a copy of a routine with done flags)

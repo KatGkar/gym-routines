@@ -99,3 +99,23 @@ export function blankSet(re: RoutineExercise, type: SetType): WorkoutSet {
     ...(isRange(re) ? { repsMax: 12 } : {}),
   };
 }
+
+// Adds a set where it belongs: warmups go before the first working set, working sets at the end
+export function withSet(sets: WorkoutSet[], set: WorkoutSet): WorkoutSet[] {
+  const firstNormal = sets.findIndex((s) => s.type === 'normal');
+  if (set.type === 'normal' || firstNormal < 0) return [...sets, set];
+  return [...sets.slice(0, firstNormal), set, ...sets.slice(firstNormal)];
+}
+
+// A set that hasn't been done yet
+export const NOT_DONE = { done: false, failed: undefined } as const;
+
+// The reps planned for a set, to tell when it fell short (AMRAP working sets have none)
+export const repTarget = (re: RoutineExercise, s: WorkoutSet) =>
+  usesReps(re) && !(isAmrap(re) && s.type === 'normal') && s.reps > 0 ? s.reps : undefined;
+
+// A done set with fewer reps than planned is failed
+export const withFailed = (s: WorkoutSet): WorkoutSet => ({
+  ...s,
+  failed: s.done && s.target !== undefined && s.reps < s.target ? true : undefined,
+});

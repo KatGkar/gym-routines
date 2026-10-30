@@ -1,5 +1,6 @@
 import type { ExerciseSetup, Routine, RoutineExercise, WorkoutSession } from './types';
 import { uid } from './utils';
+import { NOT_DONE, repTarget } from './columns';
 
 export const elapsedMs = (s: WorkoutSession, now: number) =>
   s.accumulatedMs + (s.resumedAt ? now - s.resumedAt : 0);
@@ -25,7 +26,7 @@ export function createSession(r: Routine): WorkoutSession {
     resumedAt: now,
     exercises: r.exercises.map((re) => ({
       ...re,
-      sets: re.sets.map((s) => ({ ...s, id: uid(), done: false })),
+      sets: re.sets.map((s) => ({ ...s, id: uid(), ...NOT_DONE, target: repTarget(re, s) })),
     })),
   };
 }
@@ -42,16 +43,25 @@ export const setupOf = ({
 // The exercise in use plus its alternatives, one per exercise
 const setupsOf = (re: RoutineExercise) => [setupOf(re), ...(re.alternatives ?? [])];
 
-// Swap during a workout. The outgoing exercise stays as an alternative to swap back to.
+// Swap during a workout. The outgoing exercise goes to the back of the alternatives, so
+// swapping to the first one each time goes round all of them.
 // A saved alternative comes with its own values, a new one keeps the current sets.
 export function swapTo(re: RoutineExercise, exerciseId: string): RoutineExercise {
   if (exerciseId === re.exerciseId) return re;
   const saved = re.alternatives?.find((a) => a.exerciseId === exerciseId);
   const others = (re.alternatives ?? []).filter((a) => a.exerciseId !== exerciseId);
   const incoming: ExerciseSetup = saved
-    ? { ...saved, sets: saved.sets.map((s) => ({ ...s, id: uid(), done: false })) }
+    ? {
+        ...saved,
+        sets: saved.sets.map((s) => ({
+          ...s,
+          id: uid(),
+          ...NOT_DONE,
+          target: repTarget({ ...saved, id: re.id }, s),
+        })),
+      }
     : { ...setupOf(re), exerciseId, notes: undefined };
-  return { ...re, ...incoming, alternatives: [setupOf(re), ...others] };
+  return { ...re, ...incoming, alternatives: [...others, setupOf(re)] };
 }
 
 // Values to keep in the routine: nothing done, and AMRAP has no target so it starts empty again
@@ -60,6 +70,8 @@ const forRoutine = (setup: ExerciseSetup): ExerciseSetup => ({
   sets: setup.sets.map((s) => ({
     ...s,
     done: undefined,
+    failed: undefined,
+    target: undefined,
     ...(setup.repMode === 'amrap' && s.type === 'normal' ? { reps: 0 } : {}),
   })),
 });
@@ -104,4 +116,19 @@ export function saveNewAlternatives(r: Routine, session: WorkoutSession): Routin
         : re;
     }),
   };
+}
+
+// An exercise is done once all its sets are ticked off, failed or not
+export const isExerciseDone = (re: RoutineExercise) =>
+  re.sets.length > 0 && re.sets.every((s) => s.done);
+
+// What a change in the workout just finished: an exercise, the last one (the whole
+// workout), or nothing
+export function finishedBy(
+  before: WorkoutSession,
+  after: WorkoutSession,
+): 'exercise' | 'workout' | null {
+  const wasDone = new Set(before.exercises.filter(isExerciseDone).map((re) => re.id));
+  if (!after.exercises.some((re) => isExerciseDone(re) && !wasDone.has(re.id))) return null;
+  return after.exercises.every(isExerciseDone) ? 'workout' : 'exercise';
 }
