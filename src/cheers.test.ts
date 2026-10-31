@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { exerciseCheer, workoutCheer } from './cheers';
+import { exerciseCheer, recordCheer, workoutCheer } from './cheers';
 
 // every line a moment can get, by trying all the random picks
 const allLines = (cheer: (rand: () => number) => string) => {
@@ -68,5 +68,11 @@ describe('workoutCheer', () => {
     expect(lines(120, 12)).toContain('saga');
     expect(lines(50, 6)).toContain('before sunrise');
     expect(lines(50, 22)).toContain('Night owl');
+  });
+});
+
+describe('recordCheer', () => {
+  it('can say every record line', () => {
+    expect(allLines((r) => recordCheer(r))).toContain('The bar just filed for overtime.');
   });
 });

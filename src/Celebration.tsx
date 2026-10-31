@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
+import { kg } from './records';
 
 const pick = <T,>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)];
 const pct = (done: number, total: number) => Math.round((done / total) * 100);
@@ -50,6 +51,53 @@ export function ExerciseCheer({ message, done, total, onClose }: ExerciseProps) 
   );
 }
 
+interface RecordProps {
+  message: string;
+  name: string; // the exercise
+  from: number; // the best before, in kg
+  to: number;
+  onClose: () => void;
+}
+
+// Like the exercise card, in gold, when a set beats the heaviest weight ever done
+export function RecordCheer({ message, name, from, to, onClose }: RecordProps) {
+  useEffect(() => {
+    const t = setTimeout(onClose, 4200);
+    return () => clearTimeout(t);
+  }, [onClose]);
+
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <button
+        onClick={onClose}
+        className="cheer-pop pointer-events-auto mx-auto block w-full max-w-md rounded-2xl bg-slate-900 p-4 text-left shadow-[0_14px_30px_-12px_rgb(60_30_10/0.5)] ring-2 ring-yellow-600"
+      >
+        <div className="flex items-center gap-3">
+          <span className="cheer-bounce text-3xl" aria-hidden="true">
+            🏆
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold text-slate-100">
+              New record: +{kg(to - from)} kg on {name}
+            </div>
+            <div className="text-xs text-slate-500">{message}</div>
+          </div>
+        </div>
+        <div className="mt-3 flex items-center gap-2 text-xs text-slate-500 tabular-nums">
+          {kg(from)}
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-800">
+            <div
+              className="cheer-bar h-full rounded-full bg-yellow-600"
+              style={{ '--from': '0%', '--to': '100%' } as CSSProperties}
+            />
+          </div>
+          {kg(to)} kg
+        </div>
+      </button>
+    </div>
+  );
+}
+
 const CONFETTI_COLORS = ['#92654d', '#d6b49a', '#ca8a04', '#3d6b73', '#b91c1c', '#bf8e7a'];
 
 // Two waves, so it keeps raining for a few seconds
@@ -75,6 +123,7 @@ interface WorkoutProps {
   sets: number;
   failed: number;
   exercises: number;
+  records: { name: string; from: number; to: number }[];
   onFinish: () => void;
   onClose: () => void;
 }
@@ -86,6 +135,7 @@ export function WorkoutCheer({
   sets,
   failed,
   exercises,
+  records,
   onFinish,
   onClose,
 }: WorkoutProps) {
@@ -120,6 +170,18 @@ export function WorkoutCheer({
             </div>
           ))}
         </div>
+        {records.length > 0 && (
+          <div className="mt-3 rounded-xl bg-yellow-600/15 px-3 py-2 text-left text-sm text-yellow-700">
+            <div className="font-semibold">
+              🏆 {records.length} new {records.length === 1 ? 'record' : 'records'}
+            </div>
+            {records.map((r) => (
+              <div key={r.name}>
+                {r.name} {kg(r.from)} → {kg(r.to)} kg (+{kg(r.to - r.from)})
+              </div>
+            ))}
+          </div>
+        )}
         <button
           onClick={onFinish}
           className="mt-6 w-full rounded-2xl bg-emerald-500 py-4 text-base font-semibold text-slate-950 active:bg-emerald-400"

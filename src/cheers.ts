@@ -112,6 +112,22 @@ const GENERAL = [
   'Your muscles just filed a complaint. Request denied.',
 ];
 
+const RECORD = [
+  'The bar just filed for overtime.',
+  'New personal best. The old you is taking notes.',
+  'Heavier than ever. Gravity is reconsidering its life choices.',
+  "That's not a weight, that's a statement.",
+  'Somebody call the record books. And maybe a chiropractor.',
+  'New record unlocked. The plates are whispering about you.',
+  'You just out-lifted every previous version of yourself.',
+  'Stronger than last time. Science calls it progress, we call it showing off.',
+];
+
+// A line for a new weight record
+export function recordCheer(rand = Math.random): string {
+  return RECORD[Math.floor(rand() * RECORD.length)];
+}
+
 const PERFECT = ['Not a single rep missed. Flawless victory.', 'Every rep, every set. Show-off.'];
 
 const FAILED_WORKOUT = [

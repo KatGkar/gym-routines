@@ -18,8 +18,9 @@ import {
 import ImageViewer from './ImageViewer';
 import NumInput from './NumInput';
 import { elapsedMs, finishedBy, formatDuration, isExerciseDone, swapTo } from './session';
-import { ExerciseCheer, WorkoutCheer } from './Celebration';
-import { exerciseCheer, workoutCheer } from './cheers';
+import { ExerciseCheer, RecordCheer, WorkoutCheer } from './Celebration';
+import { exerciseCheer, recordCheer, workoutCheer } from './cheers';
+import { bestWeight, recordOf } from './records';
 import { uid } from './utils';
 import { SwapIcon, UndoIcon } from './icons';
 import { setEditKey, useUndo } from './useUndo';
@@ -89,9 +90,10 @@ export default function WorkoutScreen({
   }, [updated]);
   // the celebration showing after finishing an exercise or the whole workout
   const [cheer, setCheer] = useState<{
-    kind: 'exercise' | 'workout';
+    kind: 'exercise' | 'workout' | 'record';
     message: string;
     at: number;
+    record?: { name: string; from: number; to: number };
   } | null>(null);
   // stable, so the cheer's timer isn't restarted by the clock ticking every second
   const closeCheer = useCallback(() => setCheer(null), []);
@@ -115,6 +117,8 @@ export default function WorkoutScreen({
     0,
   );
   const doneExercises = session.exercises.filter(isExerciseDone).length;
+  const recordFor = (re: RoutineExercise) => recordOf(re, bestWeight(re.exerciseId, history));
+  const nameOf = (re: RoutineExercise) => byId.get(re.exerciseId)?.name ?? 'Unknown exercise';
 
   // the timer is not part of undo: pausing isn't a step, and undo leaves the clock alone
   const { change, undo, canUndo, previous } = useUndo(session, onChange, (old, cur) => ({
@@ -136,9 +140,21 @@ export default function WorkoutScreen({
       ...session,
       exercises: session.exercises.map((re) => (re.id === id ? fn(re) : re)),
     };
-    // a cheer when this finishes an exercise (undo never does, it doesn't come through here)
+    // a cheer when this finishes an exercise or sets a record (undo never does, it doesn't
+    // come through here). Finishing the workout beats a record, a record beats an exercise.
     const finished = finishedBy(session, next);
-    if (finished) {
+    const before = session.exercises.find((x) => x.id === id);
+    const after = next.exercises.find((x) => x.id === id);
+    const was = before && recordFor(before);
+    const record = after && recordFor(after);
+    if (record && finished !== 'workout' && (!was || record.to > was.to)) {
+      setCheer((c) => ({
+        kind: 'record',
+        message: recordCheer(),
+        at: (c?.at ?? 0) + 1,
+        record: { name: nameOf(after), from: record.from, to: record.to },
+      }));
+    } else if (finished) {
       const re = next.exercises.find((x) => x.id === id)!;
       const message =
         finished === 'workout'
@@ -350,6 +366,7 @@ export default function WorkoutScreen({
           const range = isRange(re);
           const amrap = isAmrap(re);
           const prev = previousOf(re, history);
+          const record = recordFor(re);
           const template = gridTemplate(re, '2.75rem');
           const labels = setLabels(re.sets);
           const allDone = re.sets.length > 0 && re.sets.every((s) => s.done);
@@ -469,6 +486,7 @@ export default function WorkoutScreen({
                   <div className="space-y-2">
                     {re.sets.map((s, i) => {
                       const last = previousSet(prev, re.sets, i);
+                      const isRecord = record?.setId === s.id;
                       // AMRAP working sets show last time's reps inside the box instead
                       const amrapSet = amrap && s.type === 'normal';
                       return (
@@ -491,7 +509,7 @@ export default function WorkoutScreen({
                             {cols.map((c) => {
                               if (c.key !== 'reps') {
                                 const key = c.key;
-                                return (
+                                const input = (
                                   <NumInput
                                     key={key}
                                     value={s[key]}
@@ -499,8 +517,23 @@ export default function WorkoutScreen({
                                     onChange={(v) =>
                                       patchSet(re.id, s.id, { [key]: v } as Partial<WorkoutSet>)
                                     }
-                                    className={inputClass}
+                                    className={
+                                      inputClass +
+                                      (isRecord && key === 'weightKg'
+                                        ? ' bg-yellow-600/20 ring-2 ring-yellow-600'
+                                        : '')
+                                    }
                                   />
+                                );
+                                return isRecord && key === 'weightKg' ? (
+                                  <div key={key} className="relative">
+                                    {input}
+                                    <span className="pointer-events-none absolute -top-2 -right-1 rounded-full bg-yellow-600 px-1.5 text-[10px] leading-4 font-bold text-white">
+                                      PR
+                                    </span>
+                                  </div>
+                                ) : (
+                                  input
                                 );
                               }
                               return range ? (
@@ -675,6 +708,14 @@ export default function WorkoutScreen({
           onClose={closeCheer}
         />
       )}
+      {cheer?.kind === 'record' && cheer.record && (
+        <RecordCheer
+          key={cheer.at}
+          message={cheer.message}
+          {...cheer.record}
+          onClose={closeCheer}
+        />
+      )}
       {cheer?.kind === 'workout' && (
         <WorkoutCheer
           message={cheer.message}
@@ -682,6 +723,10 @@ export default function WorkoutScreen({
           sets={doneSets}
           failed={failedSets}
           exercises={session.exercises.length}
+          records={session.exercises.flatMap((re) => {
+            const r = recordFor(re);
+            return r ? [{ name: nameOf(re), from: r.from, to: r.to }] : [];
+          })}
           onFinish={() => {
             setCheer(null);
             setFinishing(true);
