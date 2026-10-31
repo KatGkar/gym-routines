@@ -279,7 +279,7 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
           <button onClick={onMinimize} className="py-1 text-slate-400 active:text-slate-100">
             ← Routines
           </button>
-          <span className="min-w-0 flex-1 truncate px-3 text-center text-sm text-slate-400">
+          <span className="min-w-0 flex-1 truncate px-3 text-center text-lg font-bold text-slate-100">
             {session.routineName}
           </span>
           <button
@@ -310,7 +310,7 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
               onClick={paused ? resume : pause}
               className="rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold ring-1 ring-slate-800 active:bg-slate-800"
             >
-              {paused ? '▶ Resume' : '⏸ Pause'}
+              {paused ? 'Resume' : 'Pause'}
             </button>
             <button
               onClick={() => setFinishing(true)}
@@ -404,6 +404,12 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
                       ) : (
                         <div className="font-semibold text-emerald-400">Unknown exercise</div>
                       )}
+                      <div className="flex flex-wrap gap-x-2 text-xs capitalize">
+                        <span className="text-slate-300">{ex?.primaryMuscles.join(', ')}</span>
+                        {ex && ex.secondaryMuscles.length > 0 && (
+                          <span className="text-sky-400">{ex.secondaryMuscles.join(', ')}</span>
+                        )}
+                      </div>
                       {re.notes && <div className="text-xs text-slate-400">{re.notes}</div>}
                     </div>
                     <button
