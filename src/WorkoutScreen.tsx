@@ -41,6 +41,7 @@ interface Props {
   onChange: (s: WorkoutSession) => void;
   onMinimize: () => void;
   onFinish: (mode: FinishMode) => void;
+  onUpdateRoutine: () => void; // save the current values to the routine, mid-workout
 }
 
 const inputClass =
@@ -68,10 +69,24 @@ const previousSet = (prev: FinishedExercise | undefined, sets: WorkoutSet[], i: 
   return match?.done ? match : undefined;
 };
 
-export default function WorkoutScreen({ session, history, onChange, onMinimize, onFinish }: Props) {
+export default function WorkoutScreen({
+  session,
+  history,
+  onChange,
+  onMinimize,
+  onFinish,
+  onUpdateRoutine,
+}: Props) {
   const { byId } = useExercises();
   const [now, setNow] = useState(() => Date.now());
   const [finishing, setFinishing] = useState(false);
+  // shows "Routine updated" on the button for a moment
+  const [updated, setUpdated] = useState(false);
+  useEffect(() => {
+    if (!updated) return;
+    const t = setTimeout(() => setUpdated(false), 2500);
+    return () => clearTimeout(t);
+  }, [updated]);
   // the celebration showing after finishing an exercise or the whole workout
   const [cheer, setCheer] = useState<{
     kind: 'exercise' | 'workout';
@@ -630,6 +645,16 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
           className="w-full rounded-2xl bg-slate-900 py-4 text-base font-semibold text-emerald-400 ring-1 ring-slate-800 active:bg-slate-800"
         >
           + Add exercise
+        </button>
+        <button
+          onClick={() => {
+            if (!confirm('Update the routine with the values from this workout?')) return;
+            onUpdateRoutine();
+            setUpdated(true);
+          }}
+          className="w-full rounded-2xl py-3 text-sm font-medium text-slate-400 ring-1 ring-slate-800 active:bg-slate-900"
+        >
+          {updated ? '✓ Routine updated' : 'Update routine with these values'}
         </button>
       </div>
 

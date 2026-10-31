@@ -134,6 +134,11 @@ function AppInner() {
           onChange={setSession}
           onMinimize={() => setView('routines')}
           onFinish={finishWorkout}
+          onUpdateRoutine={() =>
+            setRoutines((rs) =>
+              rs.map((r) => (r.id === session.routineId ? applySessionToRoutine(r, session) : r)),
+            )
+          }
         />
       </div>
     );
