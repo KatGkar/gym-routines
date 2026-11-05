@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import ExercisePicker from './ExercisePicker';
 import { imageUrl } from './exercises';
 import { useExercises } from './useExercises';
@@ -17,7 +17,14 @@ import {
 } from './columns';
 import ImageViewer from './ImageViewer';
 import NumInput from './NumInput';
-import { elapsedMs, finishedBy, formatDuration, isExerciseDone, swapTo } from './session';
+import {
+  elapsedMs,
+  finishedBy,
+  formatDuration,
+  isExerciseDone,
+  stopClock,
+  swapTo,
+} from './session';
 import { ExerciseCheer, RecordCheer, WorkoutCheer } from './Celebration';
 import { exerciseCheer, recordCheer, workoutCheer } from './cheers';
 import { bestWeight, recordOf } from './records';
@@ -127,9 +134,28 @@ export default function WorkoutScreen({
     resumedAt: cur.resumedAt,
   }));
 
-  const pause = () =>
-    onChange({ ...session, accumulatedMs: elapsedMs(session, Date.now()), resumedAt: null });
+  const pause = () => onChange(stopClock(session));
   const resume = () => onChange({ ...session, resumedAt: Date.now() });
+
+  // The clock stops while the user decides whether the workout is over, and starts again if
+  // they keep going, unless they had paused it themselves
+  const frozenToDecide = useRef(false);
+  const freezeToDecide = () => {
+    if (!paused) frozenToDecide.current = true;
+  };
+  const keepGoing = () => {
+    if (frozenToDecide.current) resume();
+    frozenToDecide.current = false;
+  };
+  const openFinish = () => {
+    freezeToDecide();
+    pause();
+    setFinishing(true);
+  };
+  const closeFinish = () => {
+    setFinishing(false);
+    keepGoing();
+  };
 
   const updateExercise = (
     id: string,
@@ -173,7 +199,12 @@ export default function WorkoutScreen({
       // `at` counts up, so a second exercise finished while a cheer shows gets a fresh one
       setCheer((c) => ({ kind: finished, message, at: (c?.at ?? 0) + 1 }));
     }
-    change(next, undoKey);
+    if (finished === 'workout') {
+      freezeToDecide();
+      change(stopClock(next), undoKey);
+    } else {
+      change(next, undoKey);
+    }
   };
 
   const patchSet = (reId: string, setId: string, patch: Partial<WorkoutSet>) =>
@@ -344,7 +375,7 @@ export default function WorkoutScreen({
               {paused ? 'Resume' : 'Pause'}
             </button>
             <button
-              onClick={() => setFinishing(true)}
+              onClick={openFinish}
               className="rounded-xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-slate-950 active:bg-emerald-400"
             >
               Finish
@@ -731,15 +762,15 @@ export default function WorkoutScreen({
             setCheer(null);
             setFinishing(true);
           }}
-          onClose={closeCheer}
+          onClose={() => {
+            closeCheer();
+            keepGoing();
+          }}
         />
       )}
 
       {finishing && (
-        <div
-          className="fixed inset-0 z-50 flex items-end bg-black/60"
-          onClick={() => setFinishing(false)}
-        >
+        <div className="fixed inset-0 z-50 flex items-end bg-black/60" onClick={closeFinish}>
           <div
             className="mx-auto w-full max-w-md rounded-t-2xl bg-slate-900 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
             onClick={(e) => e.stopPropagation()}
@@ -770,7 +801,7 @@ export default function WorkoutScreen({
                 Discard workout
               </button>
               <button
-                onClick={() => setFinishing(false)}
+                onClick={closeFinish}
                 className="w-full rounded-xl py-3 text-sm text-slate-400 active:bg-slate-800"
               >
                 Keep going

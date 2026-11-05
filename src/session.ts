@@ -5,6 +5,13 @@ import { NOT_DONE, repTarget } from './columns';
 export const elapsedMs = (s: WorkoutSession, now: number) =>
   s.accumulatedMs + (s.resumedAt ? now - s.resumedAt : 0);
 
+// The same session with its clock stopped at this moment
+export const stopClock = (s: WorkoutSession, now = Date.now()): WorkoutSession => ({
+  ...s,
+  accumulatedMs: elapsedMs(s, now),
+  resumedAt: null,
+});
+
 export const formatDuration = (ms: number) => {
   const t = Math.max(0, Math.floor(ms / 1000));
   const h = Math.floor(t / 3600);
