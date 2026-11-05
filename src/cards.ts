@@ -16,7 +16,7 @@ export const cardShadow = (stacked: number) =>
         `0 ${n * 7}px 0 ${-n * 3}px var(--color-slate-900)`,
         `0 ${n * 7 + 2}px 0 ${-n * 3 + 1}px var(--color-slate-800)`,
       ]),
-    `0 ${14 + Math.min(stacked, 2) * 7}px 24px -14px rgb(60 30 10 / 0.45)`,
+    `0 ${14 + Math.min(stacked, 2) * 7}px 24px -14px var(--card-shadow)`,
   ].join(', ');
 
 // Extra room below a card for the stacked cards

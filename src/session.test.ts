@@ -6,6 +6,7 @@ import {
   finishedBy,
   formatDuration,
   saveNewAlternatives,
+  stopClock,
   swapTo,
 } from './session';
 import type { Routine, RoutineExercise, WorkoutSession, WorkoutSet } from './types';
@@ -53,6 +54,19 @@ describe('elapsedMs', () => {
   it('adds time since the last resume while running', () => {
     const s = { ...baseSession([]), accumulatedMs: 4000, resumedAt: 10_000 };
     expect(elapsedMs(s, 15_000)).toBe(9000);
+  });
+});
+
+describe('stopClock', () => {
+  it('keeps the time so far and stops counting', () => {
+    const s = stopClock({ ...baseSession([]), accumulatedMs: 4000, resumedAt: 10_000 }, 15_000);
+    expect(s.resumedAt).toBeNull();
+    expect(elapsedMs(s, 99_000)).toBe(9000);
+  });
+
+  it('changes nothing on a clock that is already stopped', () => {
+    const s = stopClock({ ...baseSession([]), accumulatedMs: 4000, resumedAt: null }, 15_000);
+    expect(elapsedMs(s, 99_000)).toBe(4000);
   });
 });
 

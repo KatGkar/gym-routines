@@ -30,14 +30,48 @@
 
 :root {
   color-scheme: light;
+  --card-shadow: rgb(60 30 10 / 0.45);
+}
+
+/* ===== BLACK THEME: same roles as above, chosen with the button on the home screen ===== */
+:root[data-theme='black'] {
+  color-scheme: dark;
+  --card-shadow: rgb(0 0 0 / 0.6);
+
+  /* surfaces */
+  --color-slate-950: #000000; /* BASE: page background, and the text on accent buttons */
+  --color-slate-900: #141210; /* cards, panels, search and filter fields */
+  --color-slate-800: #2e2a26; /* inputs, small buttons, badges, outlines */
+  --color-slate-700: #443e38; /* dashed boxes, pressed states */
+
+  /* text and icons */
+  --color-slate-600: #7d746b; /* faint icons */
+  --color-slate-500: #a0968c; /* secondary text, labels */
+  --color-slate-400: #b8aea4; /* subtitles */
+  --color-slate-300: #d0c7be; /* button text */
+  --color-slate-200: #e4dcd4; /* set numbers */
+  --color-slate-100: #f7f1ea; /* main text */
+  --color-white: #000000; /* only the text on the gold record badge */
+
+  /* accent */
+  --color-emerald-500: #d6b49a; /* buttons, outlines, progress bars */
+  --color-emerald-400: #e6cdb8; /* accent text and pressed buttons */
+
+  /* fixed colors, tuned for black */
+  --color-sky-400: #7fb8c4;
+  --color-sky-500: #7fb8c4;
+  --color-amber-400: #fbbf24;
+  --color-amber-500: #f59e0b;
+  --color-red-400: #f87171;
+  --color-yellow-700: #e8b730; /* record text */
 }
 
 html,
 body {
   margin: 0;
   min-height: 100%;
-  background: #fff6f0; /* must be the same as slate-950 */
-  color: #2b1a10; /* must be the same as slate-100 */
+  background: var(--color-slate-950);
+  color: var(--color-slate-100);
   font-family:
     system-ui,
     -apple-system,

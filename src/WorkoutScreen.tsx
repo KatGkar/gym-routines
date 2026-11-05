@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import ExercisePicker from './ExercisePicker';
 import { imageUrl } from './exercises';
 import { useExercises } from './useExercises';
@@ -17,9 +17,17 @@ import {
 } from './columns';
 import ImageViewer from './ImageViewer';
 import NumInput from './NumInput';
-import { elapsedMs, finishedBy, formatDuration, isExerciseDone, swapTo } from './session';
-import { ExerciseCheer, WorkoutCheer } from './Celebration';
-import { exerciseCheer, workoutCheer } from './cheers';
+import {
+  elapsedMs,
+  finishedBy,
+  formatDuration,
+  isExerciseDone,
+  stopClock,
+  swapTo,
+} from './session';
+import { ExerciseCheer, RecordCheer, WorkoutCheer } from './Celebration';
+import { exerciseCheer, recordCheer, workoutCheer } from './cheers';
+import { bestWeight, recordOf } from './records';
 import { uid } from './utils';
 import { SwapIcon, UndoIcon } from './icons';
 import { setEditKey, useUndo } from './useUndo';
@@ -41,6 +49,7 @@ interface Props {
   onChange: (s: WorkoutSession) => void;
   onMinimize: () => void;
   onFinish: (mode: FinishMode) => void;
+  onUpdateRoutine: () => void; // save the current values to the routine, mid-workout
 }
 
 const inputClass =
@@ -68,15 +77,30 @@ const previousSet = (prev: FinishedExercise | undefined, sets: WorkoutSet[], i: 
   return match?.done ? match : undefined;
 };
 
-export default function WorkoutScreen({ session, history, onChange, onMinimize, onFinish }: Props) {
+export default function WorkoutScreen({
+  session,
+  history,
+  onChange,
+  onMinimize,
+  onFinish,
+  onUpdateRoutine,
+}: Props) {
   const { byId } = useExercises();
   const [now, setNow] = useState(() => Date.now());
   const [finishing, setFinishing] = useState(false);
+  // shows "Routine updated" on the button for a moment
+  const [updated, setUpdated] = useState(false);
+  useEffect(() => {
+    if (!updated) return;
+    const t = setTimeout(() => setUpdated(false), 2500);
+    return () => clearTimeout(t);
+  }, [updated]);
   // the celebration showing after finishing an exercise or the whole workout
   const [cheer, setCheer] = useState<{
-    kind: 'exercise' | 'workout';
+    kind: 'exercise' | 'workout' | 'record';
     message: string;
     at: number;
+    record?: { name: string; from: number; to: number };
   } | null>(null);
   // stable, so the cheer's timer isn't restarted by the clock ticking every second
   const closeCheer = useCallback(() => setCheer(null), []);
@@ -100,6 +124,8 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
     0,
   );
   const doneExercises = session.exercises.filter(isExerciseDone).length;
+  const recordFor = (re: RoutineExercise) => recordOf(re, bestWeight(re.exerciseId, history));
+  const nameOf = (re: RoutineExercise) => byId.get(re.exerciseId)?.name ?? 'Unknown exercise';
 
   // the timer is not part of undo: pausing isn't a step, and undo leaves the clock alone
   const { change, undo, canUndo, previous } = useUndo(session, onChange, (old, cur) => ({
@@ -108,9 +134,28 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
     resumedAt: cur.resumedAt,
   }));
 
-  const pause = () =>
-    onChange({ ...session, accumulatedMs: elapsedMs(session, Date.now()), resumedAt: null });
+  const pause = () => onChange(stopClock(session));
   const resume = () => onChange({ ...session, resumedAt: Date.now() });
+
+  // The clock stops while the user decides whether the workout is over, and starts again if
+  // they keep going, unless they had paused it themselves
+  const frozenToDecide = useRef(false);
+  const freezeToDecide = () => {
+    if (!paused) frozenToDecide.current = true;
+  };
+  const keepGoing = () => {
+    if (frozenToDecide.current) resume();
+    frozenToDecide.current = false;
+  };
+  const openFinish = () => {
+    freezeToDecide();
+    pause();
+    setFinishing(true);
+  };
+  const closeFinish = () => {
+    setFinishing(false);
+    keepGoing();
+  };
 
   const updateExercise = (
     id: string,
@@ -121,9 +166,21 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
       ...session,
       exercises: session.exercises.map((re) => (re.id === id ? fn(re) : re)),
     };
-    // a cheer when this finishes an exercise (undo never does, it doesn't come through here)
+    // a cheer when this finishes an exercise or sets a record (undo never does, it doesn't
+    // come through here). Finishing the workout beats a record, a record beats an exercise.
     const finished = finishedBy(session, next);
-    if (finished) {
+    const before = session.exercises.find((x) => x.id === id);
+    const after = next.exercises.find((x) => x.id === id);
+    const was = before && recordFor(before);
+    const record = after && recordFor(after);
+    if (record && finished !== 'workout' && (!was || record.to > was.to)) {
+      setCheer((c) => ({
+        kind: 'record',
+        message: recordCheer(),
+        at: (c?.at ?? 0) + 1,
+        record: { name: nameOf(after), from: record.from, to: record.to },
+      }));
+    } else if (finished) {
       const re = next.exercises.find((x) => x.id === id)!;
       const message =
         finished === 'workout'
@@ -142,7 +199,12 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
       // `at` counts up, so a second exercise finished while a cheer shows gets a fresh one
       setCheer((c) => ({ kind: finished, message, at: (c?.at ?? 0) + 1 }));
     }
-    change(next, undoKey);
+    if (finished === 'workout') {
+      freezeToDecide();
+      change(stopClock(next), undoKey);
+    } else {
+      change(next, undoKey);
+    }
   };
 
   const patchSet = (reId: string, setId: string, patch: Partial<WorkoutSet>) =>
@@ -279,7 +341,7 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
           <button onClick={onMinimize} className="py-1 text-slate-400 active:text-slate-100">
             ← Routines
           </button>
-          <span className="min-w-0 flex-1 truncate px-3 text-center text-sm text-slate-400">
+          <span className="min-w-0 flex-1 truncate px-3 text-center text-lg font-bold text-slate-100">
             {session.routineName}
           </span>
           <button
@@ -310,10 +372,10 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
               onClick={paused ? resume : pause}
               className="rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold ring-1 ring-slate-800 active:bg-slate-800"
             >
-              {paused ? '▶ Resume' : '⏸ Pause'}
+              {paused ? 'Resume' : 'Pause'}
             </button>
             <button
-              onClick={() => setFinishing(true)}
+              onClick={openFinish}
               className="rounded-xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-slate-950 active:bg-emerald-400"
             >
               Finish
@@ -335,6 +397,7 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
           const range = isRange(re);
           const amrap = isAmrap(re);
           const prev = previousOf(re, history);
+          const record = recordFor(re);
           const template = gridTemplate(re, '2.75rem');
           const labels = setLabels(re.sets);
           const allDone = re.sets.length > 0 && re.sets.every((s) => s.done);
@@ -404,6 +467,12 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
                       ) : (
                         <div className="font-semibold text-emerald-400">Unknown exercise</div>
                       )}
+                      <div className="flex flex-wrap gap-x-2 text-xs capitalize">
+                        <span className="text-slate-300">{ex?.primaryMuscles.join(', ')}</span>
+                        {ex && ex.secondaryMuscles.length > 0 && (
+                          <span className="text-sky-400">{ex.secondaryMuscles.join(', ')}</span>
+                        )}
+                      </div>
                       {re.notes && <div className="text-xs text-slate-400">{re.notes}</div>}
                     </div>
                     <button
@@ -448,6 +517,7 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
                   <div className="space-y-2">
                     {re.sets.map((s, i) => {
                       const last = previousSet(prev, re.sets, i);
+                      const isRecord = record?.setId === s.id;
                       // AMRAP working sets show last time's reps inside the box instead
                       const amrapSet = amrap && s.type === 'normal';
                       return (
@@ -470,7 +540,7 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
                             {cols.map((c) => {
                               if (c.key !== 'reps') {
                                 const key = c.key;
-                                return (
+                                const input = (
                                   <NumInput
                                     key={key}
                                     value={s[key]}
@@ -478,8 +548,23 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
                                     onChange={(v) =>
                                       patchSet(re.id, s.id, { [key]: v } as Partial<WorkoutSet>)
                                     }
-                                    className={inputClass}
+                                    className={
+                                      inputClass +
+                                      (isRecord && key === 'weightKg'
+                                        ? ' bg-yellow-600/20 ring-2 ring-yellow-600'
+                                        : '')
+                                    }
                                   />
+                                );
+                                return isRecord && key === 'weightKg' ? (
+                                  <div key={key} className="relative">
+                                    {input}
+                                    <span className="pointer-events-none absolute -top-2 -right-1 rounded-full bg-yellow-600 px-1.5 text-[10px] leading-4 font-bold text-white">
+                                      PR
+                                    </span>
+                                  </div>
+                                ) : (
+                                  input
                                 );
                               }
                               return range ? (
@@ -625,6 +710,16 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
         >
           + Add exercise
         </button>
+        <button
+          onClick={() => {
+            if (!confirm('Update the routine with the values from this workout?')) return;
+            onUpdateRoutine();
+            setUpdated(true);
+          }}
+          className="w-full rounded-2xl py-3 text-sm font-medium text-slate-400 ring-1 ring-slate-800 active:bg-slate-900"
+        >
+          {updated ? '✓ Routine updated' : 'Update routine with these values'}
+        </button>
       </div>
 
       {picking && (
@@ -644,6 +739,14 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
           onClose={closeCheer}
         />
       )}
+      {cheer?.kind === 'record' && cheer.record && (
+        <RecordCheer
+          key={cheer.at}
+          message={cheer.message}
+          {...cheer.record}
+          onClose={closeCheer}
+        />
+      )}
       {cheer?.kind === 'workout' && (
         <WorkoutCheer
           message={cheer.message}
@@ -651,19 +754,23 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
           sets={doneSets}
           failed={failedSets}
           exercises={session.exercises.length}
+          records={session.exercises.flatMap((re) => {
+            const r = recordFor(re);
+            return r ? [{ name: nameOf(re), from: r.from, to: r.to }] : [];
+          })}
           onFinish={() => {
             setCheer(null);
             setFinishing(true);
           }}
-          onClose={closeCheer}
+          onClose={() => {
+            closeCheer();
+            keepGoing();
+          }}
         />
       )}
 
       {finishing && (
-        <div
-          className="fixed inset-0 z-50 flex items-end bg-black/60"
-          onClick={() => setFinishing(false)}
-        >
+        <div className="fixed inset-0 z-50 flex items-end bg-black/60" onClick={closeFinish}>
           <div
             className="mx-auto w-full max-w-md rounded-t-2xl bg-slate-900 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
             onClick={(e) => e.stopPropagation()}
@@ -694,7 +801,7 @@ export default function WorkoutScreen({ session, history, onChange, onMinimize, 
                 Discard workout
               </button>
               <button
-                onClick={() => setFinishing(false)}
+                onClick={closeFinish}
                 className="w-full rounded-xl py-3 text-sm text-slate-400 active:bg-slate-800"
               >
                 Keep going
