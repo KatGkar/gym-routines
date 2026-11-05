@@ -10,6 +10,13 @@
     <meta name="theme-color" content="#FFF6F0" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>Gym Routines</title>
+    <script>
+      try {
+        if (JSON.parse(localStorage.getItem('gym-routines:theme:v1')) === 'black') {
+          document.documentElement.dataset.theme = 'black';
+        }
+      } catch {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

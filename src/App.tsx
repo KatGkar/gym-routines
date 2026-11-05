@@ -8,6 +8,7 @@ import { ExercisesProvider } from './ExercisesContext';
 import { useExercises } from './useExercises';
 import { useRoutines } from './useRoutines';
 import { useLocalState } from './useLocalState';
+import { useTheme } from './useTheme';
 import { exportBackup, parseBackup } from './backup';
 import { applySessionToRoutine, createSession, elapsedMs, saveNewAlternatives } from './session';
 import { uid } from './utils';
@@ -18,6 +19,7 @@ type View = 'routines' | 'history' | 'workout';
 
 function AppInner() {
   const [routines, setRoutines] = useRoutines();
+  const [theme, setTheme] = useTheme();
   const { custom, setCustom, byId } = useExercises();
   const [session, setSession] = useLocalState<WorkoutSession | null>(
     'gym-routines:session:v1',
@@ -174,6 +176,12 @@ function AppInner() {
             />
           </div>
           <div className="mb-6 flex flex-wrap justify-end gap-2">
+            <button
+              onClick={() => setTheme(theme === 'black' ? 'light' : 'black')}
+              className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-slate-300 ring-1 ring-slate-800 active:bg-slate-800"
+            >
+              {theme === 'black' ? 'Light' : 'Black'}
+            </button>
             <button
               onClick={() => setView('history')}
               className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-slate-300 ring-1 ring-slate-800 active:bg-slate-800"

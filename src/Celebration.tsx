@@ -30,7 +30,7 @@ export function ExerciseCheer({ message, done, total, onClose }: ExerciseProps) 
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
       <button
         onClick={onClose}
-        className="cheer-pop pointer-events-auto mx-auto block w-full max-w-md rounded-2xl bg-slate-900 p-4 text-left shadow-[0_14px_30px_-12px_rgb(60_30_10/0.5)] ring-1 ring-slate-800"
+        className="cheer-pop pointer-events-auto mx-auto block w-full max-w-md rounded-2xl bg-slate-900 p-4 text-left shadow-[0_14px_30px_-12px_var(--card-shadow)] ring-1 ring-slate-800"
       >
         <div className="flex items-center gap-3">
           <span className="cheer-bounce text-3xl" aria-hidden="true">
@@ -70,7 +70,7 @@ export function RecordCheer({ message, name, from, to, onClose }: RecordProps) {
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
       <button
         onClick={onClose}
-        className="cheer-pop pointer-events-auto mx-auto block w-full max-w-md rounded-2xl bg-slate-900 p-4 text-left shadow-[0_14px_30px_-12px_rgb(60_30_10/0.5)] ring-2 ring-yellow-600"
+        className="cheer-pop pointer-events-auto mx-auto block w-full max-w-md rounded-2xl bg-slate-900 p-4 text-left shadow-[0_14px_30px_-12px_var(--card-shadow)] ring-2 ring-yellow-600"
       >
         <div className="flex items-center gap-3">
           <span className="cheer-bounce text-3xl" aria-hidden="true">
