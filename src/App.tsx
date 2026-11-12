@@ -4,6 +4,7 @@ import RoutineEditor from './RoutineEditor';
 import WorkoutScreen from './WorkoutScreen';
 import type { FinishMode } from './WorkoutScreen';
 import HistoryScreen from './HistoryScreen';
+import MainMenu from './MainMenu';
 import { ExercisesProvider } from './ExercisesContext';
 import { useExercises } from './useExercises';
 import { useRoutines } from './useRoutines';
@@ -168,38 +169,19 @@ function AppInner() {
         />
       ) : (
         <>
-          <div className="mb-4 flex justify-center">
+          <div className="mb-6 grid grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-start">
             <img
               src={import.meta.env.BASE_URL + 'logo.svg'}
               alt="Routines"
-              className="w-72 max-w-full"
+              className="col-start-2 mx-auto w-72 max-w-full"
             />
-          </div>
-          <div className="mb-6 flex flex-wrap justify-end gap-2">
-            <button
-              onClick={() => setTheme(theme === 'black' ? 'light' : 'black')}
-              className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-slate-300 ring-1 ring-slate-800 active:bg-slate-800"
-            >
-              {theme === 'black' ? 'Light' : 'Black'}
-            </button>
-            <button
-              onClick={() => setView('history')}
-              className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-slate-300 ring-1 ring-slate-800 active:bg-slate-800"
-            >
-              History
-            </button>
-            <button
-              onClick={() => exportBackup(routines, custom, history)}
-              className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-slate-300 ring-1 ring-slate-800 active:bg-slate-800"
-            >
-              Export
-            </button>
-            <button
-              onClick={() => fileRef.current?.click()}
-              className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-slate-300 ring-1 ring-slate-800 active:bg-slate-800"
-            >
-              Import
-            </button>
+            <MainMenu
+              theme={theme}
+              onHistory={() => setView('history')}
+              onExport={() => exportBackup(routines, custom, history)}
+              onImport={() => fileRef.current?.click()}
+              onToggleTheme={() => setTheme(theme === 'black' ? 'light' : 'black')}
+            />
             <input
               ref={fileRef}
               type="file"
